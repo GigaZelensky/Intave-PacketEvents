@@ -6,6 +6,10 @@ Intave is an enterprise anticheat plugin for Minecraft servers in development si
 After almost a decade of use on the world's largest Minecraft servers
 and shutting down in mid-2025, we now decided to give back to the community by making Intave source-available to everyone.
 
+This codebase is the PacketEvents-based version of Intave. ProtocolLib is no longer used; packet handling is built on
+native PacketEvents listeners and wrapper classes. PacketEvents must be installed as a normal server plugin at runtime
+and is intentionally not shaded into the Intave jar.
+
 ## General
 
 Unlike traditional module-based anticheats, Intave accurately simulates player movement, client-side entity and block
@@ -26,12 +30,14 @@ checks [here](https://docs.intave.ac/mechanics/checks-01-overview.html).
 1. Clone the project: `git clone https://github.com/intave/intave.git`.
 2. Open the project as Gradle project; wait a few minutes for IntelliJ to index and build the
    project.
+3. Install PacketEvents on any server you use to run Intave. ViaVersion is optional and is used only for cross-version
+   protocol support when present.
 
 ### Testing
 
 Choose one of the `intave/run_X.X.X` gradle tasks corresponding to the Minecraft server version
-you want to test. Intave is then automatically installed on that server. In case of Intave failing to download
-ProtocolLib, make sure you manually install ProtocolLib on the server by moving it into the `plugins` directory.
+you want to test. Intave is then automatically installed on that server. Make sure PacketEvents is also present in the
+server's `plugins` directory before starting the server, because Intave declares it as a required runtime dependency.
 
 By doing so, you can run the plugin directly in the IDE. Breakpoints and hotswapping is
 enabled!
