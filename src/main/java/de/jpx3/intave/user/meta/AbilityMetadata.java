@@ -149,7 +149,7 @@ public final class AbilityMetadata {
   }
 
   public List<PropertyModifier> modifiersOf(Property attribute) {
-    return attributeModifiers.get(attributeKey(attribute));
+    return attributeModifiers.computeIfAbsent(attributeKey(attribute), key -> new CopyOnWriteArrayList<>());
   }
 
   private Property reduceNumberPrecision(Property input) {

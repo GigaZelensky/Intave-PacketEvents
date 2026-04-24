@@ -82,6 +82,9 @@ public final class EntityTracker extends Module {
 //  private final PeriodicTickedEntitySelector tickedEntitySelector;
 
   private final boolean NEW_POSITION_PROCESSING_1_9 = MinecraftVersions.VER1_9_0.atOrAbove();
+  private boolean entityMoveDecodeWarningShown;
+  private boolean entityPositionSyncDecodeWarningShown;
+  private boolean entityTeleportDecodeWarningShown;
 
   public EntityTracker(IntavePlugin plugin) {
     this.plugin = plugin;
@@ -232,6 +235,9 @@ public final class EntityTracker extends Module {
   }
 
   private void tryCreateVehicleEntity(User user, int entityID) {
+    if (!Bukkit.isPrimaryThread()) {
+      return;
+    }
     org.bukkit.entity.Entity entity = serverEntityByIdentifier(user.player(), entityID);
     if (entity != null && user.meta().connection().entityBy(entityID) == null) {
       spawnMobByBukkitEntity(user, entity);
@@ -527,9 +533,13 @@ public final class EntityTracker extends Module {
       ENTITY_POSITION_SYNC
     }
   )
-  public void receivePositionSync(ProtocolPacketEvent event, WrapperPlayServerEntityPositionSync packet) {
+  public void receivePositionSync(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
+    WrapperPlayServerEntityPositionSync packet = entityPositionSyncPacket(event);
+    if (packet == null) {
+      return;
+    }
     Entity entity = wrappedEntityByEntityId(user, player, packet.getId());
     if (entity == null) {
       return;
@@ -553,7 +563,7 @@ public final class EntityTracker extends Module {
       if (distanceBefore < 8 && distanceAfter < 8 && distanceBefore != distanceAfter) {
         options |= distanceAfter < distanceBefore ? TRACER_ENTITY_MOVED_CLOSER : TRACER_ENTITY_MOVED_FARTHER;
       }
-      user.tracedPacketTickFeedback(event, task, observer, options);
+      user.tracedPacketTickFeedback(event, task, observer, options | SELF_SYNCHRONIZATION);
     } else {
       entity.handleEntityPositionSync(user, position);
       entity.clientSynchronized = false;
@@ -567,9 +577,13 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void receiveEntityTeleport(ProtocolPacketEvent event, WrapperPlayServerEntityTeleport packet) {
+  public void receiveEntityTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
+    WrapperPlayServerEntityTeleport packet = entityTeleportPacket(event);
+    if (packet == null) {
+      return;
+    }
     Entity entity = wrappedEntityByEntityId(user, player, packet.getEntityId());
     if (entity == null) {
       return;
@@ -594,7 +608,7 @@ public final class EntityTracker extends Module {
       if (distanceBefore < 8 && distanceAfter < 8 && distanceBefore != distanceAfter) {
         options |= distanceAfter < distanceBefore ? TRACER_ENTITY_MOVED_CLOSER : TRACER_ENTITY_MOVED_FARTHER;
       }
-      user.tracedPacketTickFeedback(event, task, observer, options);
+      user.tracedPacketTickFeedback(event, task, observer, options | SELF_SYNCHRONIZATION);
     } else {
 //      if (newTeleports) {
 //        entity.handleEntityTeleportModern(packet);
@@ -608,6 +622,9 @@ public final class EntityTracker extends Module {
   private Entity wrappedEntityByEntityId(User user, Player player, int entityId) {
     Entity entity = entityByIdentifier(user, entityId);
     if (entity == null) {
+      if (!Bukkit.isPrimaryThread()) {
+        return null;
+      }
       org.bukkit.entity.Entity bukkitEntity = serverEntityByIdentifier(player, entityId);
       if (bukkitEntity != null) {
         return spawnMobByBukkitEntity(user, bukkitEntity);
@@ -617,6 +634,38 @@ public final class EntityTracker extends Module {
       }
     }
     return entity;
+  }
+
+  private WrapperPlayServerEntityPositionSync entityPositionSyncPacket(ProtocolPacketEvent event) {
+    PacketSendEvent sendEvent = (PacketSendEvent) event;
+    try {
+      if (event.getLastUsedWrapper() instanceof WrapperPlayServerEntityPositionSync) {
+        return (WrapperPlayServerEntityPositionSync) event.getLastUsedWrapper();
+      }
+      return new WrapperPlayServerEntityPositionSync(sendEvent);
+    } catch (RuntimeException exception) {
+      if (!entityPositionSyncDecodeWarningShown) {
+        entityPositionSyncDecodeWarningShown = true;
+        IntaveLogger.logger().warn("Could not decode outgoing entity position sync packet through PacketEvents, skipping position sync tracking for that packet");
+      }
+      return null;
+    }
+  }
+
+  private WrapperPlayServerEntityTeleport entityTeleportPacket(ProtocolPacketEvent event) {
+    PacketSendEvent sendEvent = (PacketSendEvent) event;
+    try {
+      if (event.getLastUsedWrapper() instanceof WrapperPlayServerEntityTeleport) {
+        return (WrapperPlayServerEntityTeleport) event.getLastUsedWrapper();
+      }
+      return new WrapperPlayServerEntityTeleport(sendEvent);
+    } catch (RuntimeException exception) {
+      if (!entityTeleportDecodeWarningShown) {
+        entityTeleportDecodeWarningShown = true;
+        IntaveLogger.logger().warn("Could not decode outgoing entity teleport packet through PacketEvents, skipping teleport tracking for that packet");
+      }
+      return null;
+    }
   }
 
   @PacketSubscription(
@@ -630,6 +679,9 @@ public final class EntityTracker extends Module {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     EntityMovePacket movePacket = entityMovePacket(event);
+    if (movePacket == null) {
+      return;
+    }
     int entityId = movePacket.entityId;
     /* NOTE: An entity can't be created by the entityID when the entity doesn't
      gets teleported afterwards because the Bukkit location isn't specific enough */
@@ -665,16 +717,54 @@ public final class EntityTracker extends Module {
   private EntityMovePacket entityMovePacket(ProtocolPacketEvent event) {
     PacketSendEvent sendEvent = (PacketSendEvent) event;
     PacketTypeCommon packetType = event.getPacketType();
-    if (packetType == PacketType.Play.Server.ENTITY_RELATIVE_MOVE) {
-      WrapperPlayServerEntityRelativeMove packet = new WrapperPlayServerEntityRelativeMove(sendEvent);
-      return new EntityMovePacket(packet.getEntityId(), packet.getDeltaX(), packet.getDeltaY(), packet.getDeltaZ());
-    } else if (packetType == PacketType.Play.Server.ENTITY_RELATIVE_MOVE_AND_ROTATION) {
-      WrapperPlayServerEntityRelativeMoveAndRotation packet = new WrapperPlayServerEntityRelativeMoveAndRotation(sendEvent);
-      return new EntityMovePacket(packet.getEntityId(), packet.getDeltaX(), packet.getDeltaY(), packet.getDeltaZ());
-    } else {
-      WrapperPlayServerEntityRotation packet = new WrapperPlayServerEntityRotation(sendEvent);
-      return new EntityMovePacket(packet.getEntityId(), 0.0, 0.0, 0.0);
+    try {
+      if (packetType == PacketType.Play.Server.ENTITY_RELATIVE_MOVE) {
+        WrapperPlayServerEntityRelativeMove packet = relativeMovePacket(event, sendEvent);
+        if (packet == null) {
+          return null;
+        }
+        return new EntityMovePacket(packet.getEntityId(), packet.getDeltaX(), packet.getDeltaY(), packet.getDeltaZ());
+      } else if (packetType == PacketType.Play.Server.ENTITY_RELATIVE_MOVE_AND_ROTATION) {
+        WrapperPlayServerEntityRelativeMoveAndRotation packet = relativeMoveAndRotationPacket(event, sendEvent);
+        if (packet == null) {
+          return null;
+        }
+        return new EntityMovePacket(packet.getEntityId(), packet.getDeltaX(), packet.getDeltaY(), packet.getDeltaZ());
+      } else {
+        WrapperPlayServerEntityRotation packet = entityRotationPacket(event, sendEvent);
+        if (packet == null) {
+          return null;
+        }
+        return new EntityMovePacket(packet.getEntityId(), 0.0, 0.0, 0.0);
+      }
+    } catch (RuntimeException exception) {
+      if (!entityMoveDecodeWarningShown) {
+        entityMoveDecodeWarningShown = true;
+        IntaveLogger.logger().warn("Could not decode outgoing relative entity movement packet through PacketEvents, skipping entity movement tracking for that packet");
+      }
+      return null;
     }
+  }
+
+  private WrapperPlayServerEntityRelativeMove relativeMovePacket(ProtocolPacketEvent event, PacketSendEvent sendEvent) {
+    if (event.getLastUsedWrapper() instanceof WrapperPlayServerEntityRelativeMove) {
+      return (WrapperPlayServerEntityRelativeMove) event.getLastUsedWrapper();
+    }
+    return new WrapperPlayServerEntityRelativeMove(sendEvent);
+  }
+
+  private WrapperPlayServerEntityRelativeMoveAndRotation relativeMoveAndRotationPacket(ProtocolPacketEvent event, PacketSendEvent sendEvent) {
+    if (event.getLastUsedWrapper() instanceof WrapperPlayServerEntityRelativeMoveAndRotation) {
+      return (WrapperPlayServerEntityRelativeMoveAndRotation) event.getLastUsedWrapper();
+    }
+    return new WrapperPlayServerEntityRelativeMoveAndRotation(sendEvent);
+  }
+
+  private WrapperPlayServerEntityRotation entityRotationPacket(ProtocolPacketEvent event, PacketSendEvent sendEvent) {
+    if (event.getLastUsedWrapper() instanceof WrapperPlayServerEntityRotation) {
+      return (WrapperPlayServerEntityRotation) event.getLastUsedWrapper();
+    }
+    return new WrapperPlayServerEntityRotation(sendEvent);
   }
 
   private static final class EntityMovePacket {

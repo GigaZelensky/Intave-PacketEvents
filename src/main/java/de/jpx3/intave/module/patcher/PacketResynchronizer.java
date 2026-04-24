@@ -18,16 +18,19 @@ public final class PacketResynchronizer extends Module {
   @PacketSubscription(
     priority = ListenerPriority.LOWEST,
     packetsOut = {
-      ABILITIES_OUT, ATTACH_ENTITY, /*CLOSE_WINDOW*/ ENTITY_DESTROY, ENTITY_LOOK, ENTITY_METADATA,
-      ENTITY_MOVE_LOOK, ENTITY_STATUS, ENTITY_TELEPORT, MOUNT, NAMED_ENTITY_SPAWN,
-      /*OPEN_WINDOW,*/ PLAYER_INFO, PLAYER_LIST_HEADER_FOOTER, POSITION, REL_ENTITY_MOVE, REL_ENTITY_MOVE_LOOK,
+      ABILITIES_OUT, ATTACH_ENTITY, /*CLOSE_WINDOW*/ ENTITY_DESTROY, ENTITY_METADATA,
+      ENTITY_STATUS, MOUNT, NAMED_ENTITY_SPAWN,
+      /*OPEN_WINDOW,*/ PLAYER_INFO, PLAYER_LIST_HEADER_FOOTER,
       REMOVE_ENTITY_EFFECT, RESPAWN, SPAWN_ENTITY, SPAWN_ENTITY_LIVING, /*WINDOW_ITEMS,*/ WORLD_BORDER
     }
   )
   public void catchDesynchronized(ProtocolPacketEvent event) {
+    Player player = event.getPlayer();
+    if (de.jpx3.intave.user.UserRepository.userOf(player).meta().protocol().outdatedClient()) {
+      return;
+    }
     if (isInInvalidThread()) {
       event.setCancelled(true);
-      Player player = event.getPlayer();
       Object packet = event.getFullBufferClone();
       Synchronizer.synchronize(() -> sendPacket(player, packet));
       PacketSynchronizations.enterResynchronization(event.getPacketType());

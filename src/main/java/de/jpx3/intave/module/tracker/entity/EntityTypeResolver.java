@@ -10,6 +10,7 @@ import de.jpx3.intave.entity.size.HitboxSize;
 import de.jpx3.intave.entity.size.HitboxSizeAccess;
 import de.jpx3.intave.entity.type.EntityTypeData;
 import de.jpx3.intave.entity.type.EntityTypeDataAccessor;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
@@ -17,19 +18,27 @@ import org.bukkit.entity.Zombie;
 import java.util.List;
 public final class EntityTypeResolver {
   public EntityTypeData entityTypeDataOfSpawnEntity(Player observer, WrapperPlayServerSpawnEntity packet) {
+    EntityTypeData fallback = packetTypeData(packet.getEntityType(), false);
+    if (!Bukkit.isPrimaryThread()) {
+      return fallback;
+    }
     org.bukkit.entity.Entity entity = EntityTracker.serverEntityByIdentifier(observer, packet.getEntityId());
     if (entity != null) {
       return entityTypeDataOfBukkitEntity(entity);
     }
-    return packetTypeData(packet.getEntityType(), false);
+    return fallback;
   }
 
   public EntityTypeData entityTypeDataOfLivingEntity(Player observer, WrapperPlayServerSpawnLivingEntity packet) {
+    EntityTypeData fallback = packetTypeData(packet.getEntityType(), true);
+    if (!Bukkit.isPrimaryThread()) {
+      return fallback;
+    }
     org.bukkit.entity.Entity entity = EntityTracker.serverEntityByIdentifier(observer, packet.getEntityId());
     if (entity != null) {
       return entityTypeDataOfBukkitEntity(entity);
     }
-    return packetTypeData(packet.getEntityType(), true);
+    return fallback;
   }
 
   public EntityTypeData entityTypeDataOfEntityMetadata(Player observer, int entityTypeId, List<EntityData<?>> metadata) {

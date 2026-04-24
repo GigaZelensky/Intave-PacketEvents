@@ -81,7 +81,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
     PlayerTimeMeta checkMeta = metaOf(user);
     playerJoinTimeCache.put(player.getUniqueId(), System.nanoTime());
     PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, event.getFullBufferClone());
-    user.tickFeedback(() -> checkMeta.gameJoinReceived = true);
+    user.tickFeedback(() -> checkMeta.gameJoinReceived = true, FeedbackOptions.SELF_SYNCHRONIZATION);
     event.setCancelled(true);
   }
 

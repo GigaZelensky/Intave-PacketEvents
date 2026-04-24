@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntFunction;
 
 import static de.jpx3.intave.IntaveControl.IGNORE_CHUNK_PACKETS;
@@ -243,6 +244,7 @@ public final class PacketSubscriptionLinker extends Module {
 
   private static final ThreadLocal<Map<Integer, Object[]>> argumentCache = ThreadLocal.withInitial(HashMap::new);
   private static final ThreadLocal<Map<Integer, Boolean>> argumentLocks = ThreadLocal.withInitial(HashMap::new);
+  private final Set<String> wrapperDecodeWarnings = java.util.Collections.newSetFromMap(new ConcurrentHashMap<>());
 
   private PacketSubscriptionMethodExecutor assembleSubscriptionMethodCaller(Method calledMethod) {
     calledMethod.setAccessible(true);
@@ -281,7 +283,12 @@ public final class PacketSubscriptionLinker extends Module {
           } else if (PacketTypeCommon.class.isAssignableFrom(parameterType)) {
             arguments[i] = event.getPacketType();
           } else if (PacketWrapper.class.isAssignableFrom(parameterType)) {
-            arguments[i] = wrapperFor(parameterType, event);
+            try {
+              arguments[i] = wrapperFor(parameterType, event);
+            } catch (IllegalStateException exception) {
+              noteWrapperDecodeFailure(calledMethod, subscriber, parameterType, event, exception);
+              return;
+            }
           }
         }
 
@@ -305,6 +312,24 @@ public final class PacketSubscriptionLinker extends Module {
       return (PacketWrapper<?>) constructor.newInstance(event);
     } catch (Exception exception) {
       throw new IllegalStateException("Unable to create PacketEvents wrapper " + wrapperType.getName() + " for " + event.getPacketType().getName(), exception);
+    }
+  }
+
+  private void noteWrapperDecodeFailure(
+    Method calledMethod,
+    PacketEventSubscriber subscriber,
+    Class<?> wrapperType,
+    ProtocolPacketEvent event,
+    IllegalStateException exception
+  ) {
+    String warningKey = calledMethod.toGenericString() + "|" + wrapperType.getName() + "|" + event.getPacketType().getName();
+    if (wrapperDecodeWarnings.add(warningKey)) {
+      IntaveLogger.logger().warn(
+        "Skipping packet subscription method " + calledMethod.getName()
+          + " in " + subscriber.getClass().getSimpleName()
+          + " because PacketEvents could not decode "
+          + wrapperType.getSimpleName() + " for " + event.getPacketType().getName()
+      );
     }
   }
 

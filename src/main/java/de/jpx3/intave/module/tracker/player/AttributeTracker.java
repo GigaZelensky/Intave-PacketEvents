@@ -14,6 +14,7 @@ import de.jpx3.intave.user.meta.AbilityMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
 import org.bukkit.entity.Player;
 
+import java.util.Collections;
 import java.util.List;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.UPDATE_ATTRIBUTES;
@@ -46,6 +47,9 @@ public final class AttributeTracker extends Module {
       List<PropertyModifier> intaveAttributes = abilities.modifiersOf(attribute);
       intaveAttributes.clear();
       List<PropertyModifier> serverAttributes = attribute.getModifiers();
+      if (serverAttributes == null) {
+        serverAttributes = Collections.emptyList();
+      }
       movement.hasSprintSpeed = serverAttributes.stream().anyMatch(MovementMetadata::isSprintingModifier);
       intaveAttributes.addAll(serverAttributes);
       abilities.modifyBaseValue(attribute.getKey(), attribute.getValue());

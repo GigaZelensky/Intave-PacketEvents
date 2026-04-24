@@ -1,6 +1,7 @@
 package de.jpx3.intave.module.dispatch;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
@@ -49,6 +50,7 @@ import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.UNKNOWN;
 
 public final class TeleportApplyEnforcer implements PacketEventSubscriber {
   private static final boolean NEW_TELEPORTATION = MinecraftVersions.VER1_9_0.atOrAbove();
+  private boolean teleportPacketDecodeWarningShown;
 
   private boolean teleportFeedbackSyncEnforcement = true;
 
@@ -74,10 +76,15 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
           POSITION
       }
   )
-  public void receiveOutgoingTeleport(ProtocolPacketEvent event, WrapperPlayServerPlayerPositionAndLook packet) {
+  public void receiveOutgoingTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
+    WrapperPlayServerPlayerPositionAndLook packet = outgoingTeleportPacket(event);
+    if (packet == null) {
+      movementData.awaitOutgoingTeleport = false;
+      return;
+    }
 
     double positionX = packet.getX();
     double positionY = packet.getY();
@@ -96,33 +103,16 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
 
     Boolean funkyBoolean = packet.isDismountVehicle();
 
-    boolean flagModification = false;
     if (relativeX) {
       positionX += user.meta().movement().verifiedPositionX();
-      packet.setX(positionX);
-      flags.remove(Relative.X);
-      packet.setRelative(RelativeFlag.X, false);
-      flagModification = true;
     }
 
     if (relativeY) {
       positionY += user.meta().movement().verifiedPositionY();
-      packet.setY(positionY);
-      flags.remove(Relative.Y);
-      packet.setRelative(RelativeFlag.Y, false);
-      flagModification = true;
     }
 
     if (relativeZ) {
       positionZ += user.meta().movement().verifiedPositionZ();
-      packet.setZ(positionZ);
-      flags.remove(Relative.Z);
-      packet.setRelative(RelativeFlag.Z, false);
-      flagModification = true;
-    }
-
-    if (flagModification) {
-      event.markForReEncode(true);
     }
 
     boolean expectRotation = false;//!flags.contains(TeleportFlag.X_ROT) && !flags.contains(TeleportFlag.Y_ROT);
@@ -139,7 +129,11 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
       Vector3d deltaMovement = packet.getDeltaMovement();
       movementData.teleportMotion.setTo(new Motion(deltaMovement.getX(), deltaMovement.getY(), deltaMovement.getZ()));
     }
-    movementData.teleportRelatives = new HashSet<>(flags);
+    Set<Relative> motionFlags = new HashSet<>(flags);
+    motionFlags.remove(Relative.X);
+    motionFlags.remove(Relative.Y);
+    motionFlags.remove(Relative.Z);
+    movementData.teleportRelatives = motionFlags;
 
     movementData.setVerifiedLocation(teleportLocation.clone(), "Teleportation to " + teleportLocation);
     if (NEW_TELEPORTATION) {
@@ -158,7 +152,7 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     /*
      * ViaBackwards messes up the order of teleportation packets, so we need to account for that
      */
-    if (/*!user.meta().protocol().outdatedClient() &&*/ teleportFeedbackSyncEnforcement) {
+    if (!user.meta().protocol().outdatedClient() && teleportFeedbackSyncEnforcement) {
       user.doubleTickFeedback(
         event,
         () -> {
@@ -178,6 +172,44 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     movementData.teleportResendCountdown = 20;
 //    movementData.outgoingTeleportCountdown = 5;
     movementData.isTeleportConfirmationPacket = false;
+  }
+
+  @PacketSubscription(
+      priority = ListenerPriority.MONITOR,
+      packetsOut = {
+          POSITION
+      }
+  )
+  public void preserveOutgoingTeleportPacket(ProtocolPacketEvent event) {
+    event.markForReEncode(false);
+    event.setLastUsedWrapper(null);
+  }
+
+  private WrapperPlayServerPlayerPositionAndLook outgoingTeleportPacket(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketSendEvent)) {
+      return null;
+    }
+    if (event.getLastUsedWrapper() instanceof WrapperPlayServerPlayerPositionAndLook) {
+      return (WrapperPlayServerPlayerPositionAndLook) event.getLastUsedWrapper();
+    }
+    PacketSendEvent clonedEvent = null;
+    try {
+      clonedEvent = ((PacketSendEvent) event).clone();
+      if (clonedEvent == null) {
+        return null;
+      }
+      return new WrapperPlayServerPlayerPositionAndLook(clonedEvent);
+    } catch (RuntimeException exception) {
+      if (!teleportPacketDecodeWarningShown) {
+        teleportPacketDecodeWarningShown = true;
+        IntaveLogger.logger().warn("Could not decode outgoing player teleport packet through PacketEvents, skipping teleport lock for that packet");
+      }
+      return null;
+    } finally {
+      if (clonedEvent != null) {
+        clonedEvent.cleanUp();
+      }
+    }
   }
 
   @PacketSubscription(

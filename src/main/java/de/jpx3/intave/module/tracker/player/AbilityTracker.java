@@ -4,7 +4,6 @@ import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerAbilities;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCamera;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChangeGameState;
-import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerAbilities;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.module.Module;
@@ -22,6 +21,7 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
+import static de.jpx3.intave.module.feedback.FeedbackOptions.SELF_SYNCHRONIZATION;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 
@@ -62,13 +62,13 @@ public final class AbilityTracker extends Module {
       ABILITIES_OUT
     }
   )
-  public void sentAbilities(User user, WrapperPlayServerPlayerAbilities packet, ProtocolPacketEvent event) {
+  public void sentAbilities(User user, Player player, ProtocolPacketEvent event) {
     MetadataBundle meta = user.meta();
     MovementMetadata movement = meta.movement();
     AbilityMetadata abilityData = meta.abilities();
-    float flyingSpeed = packet.getFlySpeed();
-    float walkingSpeed = packet.getFOVModifier();
-    boolean allowedFlight = packet.isFlightAllowed();
+    float flyingSpeed = player.getFlySpeed() / 2.0f;
+    float walkingSpeed = player.getWalkSpeed() / 2.0f;
+    boolean allowedFlight = player.getAllowFlight();
     boolean critical = abilityData.allowFlying() && !allowedFlight && movement.criticalTeleportRateLimiter.tryAcquire();
     if (critical /*&& movement.lastTeleport < 20*/) {
       // Teleport again to force transaction synchronization
@@ -76,12 +76,12 @@ public final class AbilityTracker extends Module {
         MovementMetadata moovement = user.meta().movement();
         if (moovement.criticalFlyingDisallowStacks > 0) {
           Location position = moovement.verifiedLocation().clone();
-          Player player = user.player();
-          position.setWorld(player.getWorld());
-          player.teleport(position);
+          Player onlinePlayer = user.player();
+          position.setWorld(onlinePlayer.getWorld());
+          onlinePlayer.teleport(position);
           moovement.criticalFlyingBlockMovementStacks++;
           if (user.receives(MessageChannel.DEBUG_TELEPORT)) {
-            player.sendMessage(IntavePlugin.prefix() + "Teleport to " + player.getLocation().getBlockX() + " " + player.getLocation().getBlockY() + " " + player.getLocation().getBlockZ() + " " + " as " + ChatColor.RED + " not responding to critical flight disallow");
+            onlinePlayer.sendMessage(IntavePlugin.prefix() + "Teleport to " + onlinePlayer.getLocation().getBlockX() + " " + onlinePlayer.getLocation().getBlockY() + " " + onlinePlayer.getLocation().getBlockZ() + " " + " as " + ChatColor.RED + " not responding to critical flight disallow");
           }
         }
       }, 20);
@@ -103,7 +103,7 @@ public final class AbilityTracker extends Module {
         }
         movement.criticalFlyingBlockMovementStacks = 0;
       }
-    });
+    }, SELF_SYNCHRONIZATION);
   }
 
   @PacketSubscription(

@@ -2,6 +2,7 @@ package de.jpx3.intave.entity;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.Nullable;
@@ -25,6 +26,9 @@ public final class EntityLookup {
     Entity entity = entityAccessCache.getIfPresent(cacheKey);
     if (entity != null) {
       return entity;
+    }
+    if (!Bukkit.isPrimaryThread()) {
+      return null;
     }
     entity = entityById(world, identifier);
     if (entity != null) {

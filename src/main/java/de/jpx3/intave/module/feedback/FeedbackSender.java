@@ -7,11 +7,9 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerKe
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPing;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import de.jpx3.intave.IntaveControl;
-import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.executor.Synchronizer;
-import de.jpx3.intave.klass.trace.Caller;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.user.User;
@@ -35,7 +33,6 @@ public final class FeedbackSender extends Module {
   private static final boolean USE_PING_PONG_PACKETS = MinecraftVersions.VER1_17_0.atOrAbove();
   private static final long OPTIONAL_PENDING_LIMIT = 20;
   private static final long OPTIONAL_SENT_LIMIT = 150;
-  private static long WARNINGS_LEFT = 500;
 
   private static final long bootTime = System.currentTimeMillis();
   public static IdGeneratorMode activeGenerator = IdGeneratorMode.highestCompatibility();
@@ -104,19 +101,9 @@ public final class FeedbackSender extends Module {
     int options
   ) {
     if (!Bukkit.isPrimaryThread()) {
-      if (matches(SELF_SYNCHRONIZATION, options)) {
+      if (matches(SELF_SYNCHRONIZATION, options) || isInInvalidThread()) {
         Synchronizer.synchronize(() -> tracedDoubleSynchronize(player, encapsulate, target, firstCallback, secondCallback, firstTracker, secondTracker, options));
         return;
-      } else if (isInInvalidThread()) {
-        if (WARNINGS_LEFT-- > 0) {
-          IntaveLogger.logger().info("Async packet sent from "+Caller.pluginInfo(true)+" on thread " + Thread.currentThread().getName());
-          IntaveLogger.logger().info("It is highly recommended to only send packets on the main thread.");
-          Thread.dumpStack();
-        }
-//        Thread.dumpStack();
-//        firstCallback.success(player, target);
-//        secondCallback.success(player, target);
-//        return;
       }
     }
     User user = UserRepository.userOf(player);
@@ -196,20 +183,18 @@ public final class FeedbackSender extends Module {
     Player player, T target, FeedbackCallback<T> callback, FeedbackObserver tracker, int options,
     @Nullable ProtocolPacketEvent toBundle
   ) {
+    Object bundledPacket = prepareBundledPacket(toBundle);
+    tracedSingleSynchronize(player, target, callback, tracker, options, bundledPacket);
+  }
+
+  private <T> void tracedSingleSynchronize(
+    Player player, T target, FeedbackCallback<T> callback, FeedbackObserver tracker, int options,
+    @Nullable Object bundledPacket
+  ) {
     if (!Bukkit.isPrimaryThread()) {
-      if (matches(SELF_SYNCHRONIZATION, options)) {
-        Synchronizer.synchronize(() -> tracedSingleSynchronize(player, target, callback, tracker, options));
+      if (matches(SELF_SYNCHRONIZATION, options) || isInInvalidThread()) {
+        Synchronizer.synchronize(() -> tracedSingleSynchronize(player, target, callback, tracker, options, bundledPacket));
         return;
-      } else if (isInInvalidThread()) {
-//        IntaveLogger.logger().error("We can't perform tick-validation on thread " + Thread.currentThread().getName());
-//        Thread.dumpStack();
-//        callback.success(player, target);
-//        return;
-        if (WARNINGS_LEFT-- > 0) {
-          IntaveLogger.logger().info("Async packet sent from "+Caller.pluginInfo(true)+" on thread " + Thread.currentThread().getName());
-          IntaveLogger.logger().info("It is highly recommended to only send packets on the main thread.");
-          Thread.dumpStack();
-        }
       }
     }
     ReentrantLock lock = userLock(userOf(player));
@@ -234,7 +219,7 @@ public final class FeedbackSender extends Module {
       }
       countTransactionPacket(player);
       FeedbackRequest<T> request = createRequest(player, target, callback, tracker, options);
-      performRequest(player, request, toBundle);
+      performRequest(player, request, bundledPacket);
     } finally {
       lock.unlock();
     }
@@ -322,9 +307,7 @@ public final class FeedbackSender extends Module {
 
   private boolean bundlingDisabled;
 
-  private void performRequest(
-    Player receiver, FeedbackRequest<?> request, @Nullable ProtocolPacketEvent toBundle
-  ) {
+  private void performRequest(Player receiver, FeedbackRequest<?> request, @Nullable Object bundledPacket) {
     if (request == null) {
       return;
     }
@@ -340,9 +323,7 @@ public final class FeedbackSender extends Module {
 //      System.out.println("Received " + transactionIdentifier + "/" +transactionResponse.num() + " from " + player.getName());
       System.out.println("Sent " + id + "/"+request.num() + " to " + receiver.getName());
     }
-    if (MinecraftVersions.VER1_19_4.atOrAbove() && !bundlingDisabled && toBundle != null) {
-      Object bundledPacket = toBundle.getFullBufferClone();
-      toBundle.setCancelled(true);
+    if (bundledPacket != null) {
       user.ignoreNextOutboundPacket();
       sendServerPacket(receiver, packet);
       sendServerPacket(receiver, bundledPacket);
@@ -381,6 +362,22 @@ public final class FeedbackSender extends Module {
 
   private static long pendingTransactions(User user) {
     return user.meta().connection().feedbackQueue().size();
+  }
+
+  private Object prepareBundledPacket(@Nullable ProtocolPacketEvent toBundle) {
+    if (!MinecraftVersions.VER1_19_4.atOrAbove() || bundlingDisabled || toBundle == null) {
+      return null;
+    }
+    Player player = toBundle.getPlayer();
+    if (player != null) {
+      User user = userOf(player);
+      if (user.hasPlayer() && user.meta().protocol().outdatedClient()) {
+        return null;
+      }
+    }
+    Object bundledPacket = toBundle.getFullBufferClone();
+    toBundle.setCancelled(true);
+    return bundledPacket;
   }
 
   private User userOf(Player player) {

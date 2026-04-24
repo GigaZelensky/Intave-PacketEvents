@@ -109,6 +109,10 @@ public final class PacketDelayer extends Module {
       return;
     }
 
+    if (protocol.outdatedClient()) {
+      return;
+    }
+
     if (connection.ignorePacketEnqueue) {
       return;
     }
