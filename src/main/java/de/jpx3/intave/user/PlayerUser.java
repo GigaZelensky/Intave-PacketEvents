@@ -93,6 +93,7 @@ final class PlayerUser implements User {
   private TrustFactor trustFactor = TrustFactor.DARK_RED;
   private boolean storageLoaded;
   private boolean disconnectQueued = false;
+  private boolean joinInfoLogged;
 
   PlayerUser(Player player) {
     this.player = new WeakReference<>(player);
@@ -142,9 +143,10 @@ final class PlayerUser implements User {
   private void outputVersionJoinInfo() {
     Player player = player();
     ProtocolMetadata clientData = meta().protocol();
-    if (!ConsoleOutput.CLIENT_VERSION_DEBUG) {
+    if (!ConsoleOutput.CLIENT_VERSION_DEBUG || joinInfoLogged) {
       return;
     }
+    joinInfoLogged = true;
     String string = player.getName() + " joined with version " + clientData.versionString() + "/" + clientData.protocolVersion();
     if (clientData.outdatedClient()) {
       string += " (behind)";

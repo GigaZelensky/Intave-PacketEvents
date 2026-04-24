@@ -14,9 +14,15 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.LOGIN;
 
 public final class UserLifetimeService extends Module {
+  private final Set<UUID> pendingSetups = ConcurrentHashMap.newKeySet();
+
   public void enable() {
     for (Player player : Bukkit.getOnlinePlayers()) {
       if (!UserRepository.userOf(player).hasPlayer()) {
@@ -41,22 +47,31 @@ public final class UserLifetimeService extends Module {
   @BukkitEventSubscription(priority = EventPriority.LOWEST)
   public void receiveJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
-    if (!UserRepository.hasUser(player)) {
-      setupUser(player);
-    }
+    setupUser(player);
   }
 
   private void setupUser(Player player) {
-    if (!UserRepository.hasUser(player)) {
-      UserRepository.registerUser(player);
+    UUID uniqueId = player.getUniqueId();
+    if (UserRepository.hasUser(player) || !pendingSetups.add(uniqueId)) {
+      return;
     }
+    UserRepository.registerUser(player);
     User user = UserRepository.userOf(player);
-    Synchronizer.synchronizeDelayed(user::delayedSetup, 20);
+    Synchronizer.synchronizeDelayed(() -> {
+      try {
+        if (UserRepository.hasUser(player)) {
+          user.delayedSetup();
+        }
+      } finally {
+        pendingSetups.remove(uniqueId);
+      }
+    }, 20);
   }
 
   @BukkitEventSubscription(priority = EventPriority.HIGHEST)
   public void receiveQuit(PlayerQuitEvent event) {
     Player player = event.getPlayer();
+    pendingSetups.remove(player.getUniqueId());
     UserRepository.unregisterUser(player);
   }
 }

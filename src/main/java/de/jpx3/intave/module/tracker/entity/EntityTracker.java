@@ -124,46 +124,8 @@ public final class EntityTracker extends Module {
       WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers((PacketSendEvent) event);
       //1.9+ servers
       int vehicleId = packet.getEntityId();
-      Entity vehicle = UserRepository.userOf(player).meta().connection().entityBy(vehicleId);
-      if (vehicle == null) {
-        IntaveLogger.logger().error("Vehicle entity not found in mount request: " + vehicleId);
-        detachEntity(user, vehicleId, -1);
-        return;
-      }
       int[] newPassengers = packet.getPassengers();
-      List<Entity> oldPassengers = vehicle.passengers();
-      List<Integer> toAdd = new ArrayList<>();
-      List<Integer> toRemove = new ArrayList<>();
-      for (int passengerId : newPassengers) {
-        boolean b = true;
-        for (Entity entity : oldPassengers) {
-          if (entity.entityId() == passengerId) {
-            b = false;
-            break;
-          }
-        }
-        if (b) {
-          toAdd.add(passengerId);
-        }
-      }
-      for (Entity passenger : oldPassengers) {
-        boolean b = true;
-        for (int id : newPassengers) {
-          if (id == passenger.entityId()) {
-            b = false;
-            break;
-          }
-        }
-        if (b) {
-          toRemove.add(passenger.entityId());
-        }
-      }
-      for (Integer passengerRemoval : toRemove) {
-        detachEntity(user, vehicleId, passengerRemoval);
-      }
-      for (Integer passengerAddition : toAdd) {
-        attachEntity(user, vehicleId, passengerAddition);
-      }
+      processSetPassengers(user, vehicleId, Arrays.copyOf(newPassengers, newPassengers.length), true);
     } else if (event.getPacketType() == PacketType.Play.Server.ATTACH_ENTITY) {
       WrapperPlayServerAttachEntity packet = new WrapperPlayServerAttachEntity((PacketSendEvent) event);
       // 1.8 servers
@@ -176,6 +138,66 @@ public final class EntityTracker extends Module {
           attachEntity(user, vehicleId, passengerId);
         }
       }
+    }
+  }
+
+  private void processSetPassengers(User user, int vehicleId, int[] newPassengers, boolean allowThreadRetry) {
+    ConnectionMetadata connection = user.meta().connection();
+    Entity vehicle = connection.entityBy(vehicleId);
+    if (vehicle == null) {
+      if (Bukkit.isPrimaryThread()) {
+        tryCreateVehicleEntity(user, vehicleId);
+        vehicle = connection.entityBy(vehicleId);
+      } else if (allowThreadRetry) {
+        Synchronizer.synchronize(() -> {
+          Player player = user.player();
+          if (player != null && player.isOnline()) {
+            processSetPassengers(user, vehicleId, newPassengers, false);
+          }
+        });
+        return;
+      }
+    }
+
+    if (vehicle == null || vehicle == Entity.destroyedEntity()) {
+      if (IntaveControl.DEBUG_MOUNTING || IntaveControl.DEBUG_ENTITY_TRACKING) {
+        IntaveLogger.logger().info("Skipping mount request for unknown vehicle entity: " + vehicleId);
+      }
+      return;
+    }
+
+    List<Entity> oldPassengers = vehicle.passengers();
+    List<Integer> toAdd = new ArrayList<>();
+    List<Integer> toRemove = new ArrayList<>();
+    for (int passengerId : newPassengers) {
+      boolean b = true;
+      for (Entity entity : oldPassengers) {
+        if (entity.entityId() == passengerId) {
+          b = false;
+          break;
+        }
+      }
+      if (b) {
+        toAdd.add(passengerId);
+      }
+    }
+    for (Entity passenger : oldPassengers) {
+      boolean b = true;
+      for (int id : newPassengers) {
+        if (id == passenger.entityId()) {
+          b = false;
+          break;
+        }
+      }
+      if (b) {
+        toRemove.add(passenger.entityId());
+      }
+    }
+    for (Integer passengerRemoval : toRemove) {
+      detachEntity(user, vehicleId, passengerRemoval);
+    }
+    for (Integer passengerAddition : toAdd) {
+      attachEntity(user, vehicleId, passengerAddition);
     }
   }
 
