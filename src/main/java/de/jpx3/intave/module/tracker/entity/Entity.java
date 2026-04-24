@@ -1,5 +1,8 @@
 package de.jpx3.intave.module.tracker.entity;
 
+import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
+import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
+import com.github.retrooper.packetevents.util.Vector3d;
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.entity.size.HitboxSize;
@@ -26,6 +29,8 @@ public class Entity {
   */
   private static Entity DESTROYED_ENTITY;
   private static final boolean POSITION_PROCESSING_1_9 = MinecraftVersions.VER1_9_0.atOrAbove();
+  private static final double MODERN_POSITION_SCALE = 4096d;
+  private static final double LEGACY_POSITION_SCALE = 32d;
   private EntityTypeData typeData;
 
   private final int entityId;
@@ -195,7 +200,16 @@ public class Entity {
     }
   }
 
-  public void immediateEntityTeleport(User user, com.github.retrooper.packetevents.util.Vector3d position) {
+  public void immediateEntityTeleport(User user, EntityPositionData values, RelativeFlag relativeFlags) {
+    Position resolvedPosition = resolveTeleportPosition(immediateServerPosition, values.getPosition(), relativeFlags);
+    immediateEntityTeleport(user, resolvedPosition);
+  }
+
+  public void immediateEntityTeleport(User user, Vector3d position) {
+    immediateEntityTeleport(user, Position.of(position.getX(), position.getY(), position.getZ()));
+  }
+
+  private void immediateEntityTeleport(User user, Position position) {
     double newPosX = position.getX();
     double newPosY = position.getY();
     double newPosZ = position.getZ();
@@ -209,7 +223,16 @@ public class Entity {
     setImmediateServerPosition(newPosX, newPosY, newPosZ);
   }
 
-  public void handleEntityTeleport(User user, com.github.retrooper.packetevents.util.Vector3d position) {
+  public void handleEntityTeleport(User user, EntityPositionData values, RelativeFlag relativeFlags) {
+    Position resolvedPosition = resolveTeleportPosition(position.toPosition(), values.getPosition(), relativeFlags);
+    handleEntityTeleport(user, resolvedPosition);
+  }
+
+  public void handleEntityTeleport(User user, Vector3d position) {
+    handleEntityTeleport(user, Position.of(position.getX(), position.getY(), position.getZ()));
+  }
+
+  private void handleEntityTeleport(User user, Position position) {
     double newPosX = position.getX();
     double newPosY = position.getY();
     double newPosZ = position.getZ();
@@ -247,7 +270,7 @@ public class Entity {
     }
   }
 
-  public void handleEntityPositionSync(User user, com.github.retrooper.packetevents.util.Vector3d position) {
+  public void handleEntityPositionSync(User user, Vector3d position) {
     double newPosX = position.getX();
     double newPosY = position.getY();
     double newPosZ = position.getZ();
@@ -270,22 +293,22 @@ public class Entity {
     }
   }
 
-  public void immediateEntityPositionSync(com.github.retrooper.packetevents.util.Vector3d position) {
+  public void immediateEntityPositionSync(Vector3d position) {
     immediateCodec.setBase(new Position(position.getX(), position.getY(), position.getZ()));
     setImmediateServerPosition(position.getX(), position.getY(), position.getZ());
   }
 
   public void immediateEntityMovement(double deltaX, double deltaY, double deltaZ) {
-    double newPosX = immediateServerPosition.getX() + deltaX;
-    double newPosY = immediateServerPosition.getY() + deltaY;
-    double newPosZ = immediateServerPosition.getZ() + deltaZ;
+    double newPosX = decodedServerPosition(immServerPosX) + deltaX;
+    double newPosY = decodedServerPosition(immServerPosY) + deltaY;
+    double newPosZ = decodedServerPosition(immServerPosZ) + deltaZ;
     setImmediateServerPosition(newPosX, newPosY, newPosZ);
   }
 
   public void handleEntityMovement(User user, double deltaX, double deltaY, double deltaZ, boolean sync) {
-    double newPosX = position.posX + deltaX;
-    double newPosY = position.posY + deltaY;
-    double newPosZ = position.posZ + deltaZ;
+    double newPosX = decodedServerPosition(serverPosX) + deltaX;
+    double newPosY = decodedServerPosition(serverPosY) + deltaY;
+    double newPosZ = decodedServerPosition(serverPosZ) + deltaZ;
     serverPosX = encodedServerPosition(newPosX);
     serverPosY = encodedServerPosition(newPosY);
     serverPosZ = encodedServerPosition(newPosZ);
@@ -309,6 +332,33 @@ public class Entity {
 
   private long encodedServerPosition(double value) {
     return POSITION_PROCESSING_1_9 ? ClientMath.positionLong(value) : ClientMath.floor(value * 32d);
+  }
+
+  private double decodedServerPosition(long value) {
+    return value / (POSITION_PROCESSING_1_9 ? MODERN_POSITION_SCALE : LEGACY_POSITION_SCALE);
+  }
+
+  private Position resolveTeleportPosition(Position base, Vector3d packetPosition, RelativeFlag relativeFlags) {
+    Set<Relative> relativeSet = relativeSetFrom(relativeFlags);
+    Position old = base.filtered(relativeSet);
+    return old.add(packetPosition.getX(), packetPosition.getY(), packetPosition.getZ());
+  }
+
+  private Set<Relative> relativeSetFrom(RelativeFlag relativeFlags) {
+    if (relativeFlags == null || relativeFlags.getFullMask() == 0) {
+      return Collections.emptySet();
+    }
+    EnumSet<Relative> set = EnumSet.noneOf(Relative.class);
+    if (relativeFlags.has(RelativeFlag.X)) {
+      set.add(Relative.X);
+    }
+    if (relativeFlags.has(RelativeFlag.Y)) {
+      set.add(Relative.Y);
+    }
+    if (relativeFlags.has(RelativeFlag.Z)) {
+      set.add(Relative.Z);
+    }
+    return set;
   }
 
   private double squaredDistanceTo(double newX, double newY, double newZ) {

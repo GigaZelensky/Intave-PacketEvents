@@ -3,7 +3,9 @@ package de.jpx3.intave.module.tracker.entity;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
+import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerAttachEntity;
@@ -590,16 +592,17 @@ public final class EntityTracker extends Module {
     }
 
     MovementMetadata movement = user.meta().movement();
-    Vector3d position = packet.getPosition();
+    EntityPositionData values = packet.getValues();
+    RelativeFlag relativeFlags = packet.getRelativeFlags();
     double distanceBefore = entity.distanceToPlayerCache > 8 ? 10 : entity.immediateServerPosition.distance(movement.positionX, movement.positionY, movement.positionZ);
 
-    entity.immediateEntityTeleport(user, position);
+    entity.immediateEntityTeleport(user, values, relativeFlags);
     double distanceAfter = distanceBefore > 8 ? 10 : entity.immediateServerPosition.distance(movement.positionX, movement.positionY, movement.positionZ);
 
     if (entity.typeData().isLivingEntity() && entity.tracingEnabled()) {
       EmptyFeedbackCallback task = () -> {
         entity.verifiedPosition = false;
-        entity.handleEntityTeleport(user, position);
+        entity.handleEntityTeleport(user, values, relativeFlags);
         entity.clientSynchronized = true;
         nayoroEntityPositionUpdate(player, entity);
       };
@@ -614,7 +617,7 @@ public final class EntityTracker extends Module {
 //        entity.handleEntityTeleportModern(packet);
 //      } else {
 //      }
-      entity.handleEntityTeleport(user, position);
+      entity.handleEntityTeleport(user, values, relativeFlags);
       entity.clientSynchronized = false;
     }
   }
