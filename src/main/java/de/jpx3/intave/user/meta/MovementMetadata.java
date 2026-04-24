@@ -359,7 +359,7 @@ public final class MovementMetadata implements SimulationEnvironment {
     lastPositionY = positionY;
     lastPositionZ = positionZ;
     if (sprintResetNextTick) {
-      DataWatcherAccess.setDataWatcherFlag(player, DataWatcherAccess.WATCHER_SPRINT_ID, true);
+      DataWatcherAccess.setSprintingFlag(player, true);
       sprintResetNextTick = false;
     }
     if (hasMovement) {
@@ -984,7 +984,7 @@ public final class MovementMetadata implements SimulationEnvironment {
     InventoryMetadata inventoryData = user.meta().inventory();
     // really required
     if (player.getFoodLevel() >= 6 && !inventoryData.inventoryOpen()) {
-      DataWatcherAccess.setDataWatcherFlag(player, DataWatcherAccess.WATCHER_SPRINT_ID, false);
+      DataWatcherAccess.setSprintingFlag(player, false);
       sprintResetNextTick = true;
     }
   }

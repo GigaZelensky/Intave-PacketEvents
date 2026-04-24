@@ -344,7 +344,7 @@ public final class CombatMitigator extends Module {
 
     String message = ChatColor.RED + "[CM] Applied " + attackNerfer.name() + " combat nerfer on " + player.getName() + " (dmc" + checkId + ") " + durationText;
 
-    if (IntaveControl.DEBUG_HEURISTICS && !plugin.sibyl().isAuthenticated(player)) {
+    if (IntaveControl.DEBUG_HEURISTICS) {
       player.sendMessage(message);
     }
 
@@ -361,9 +361,7 @@ public final class CombatMitigator extends Module {
     }
 
     for (Player authenticatedPlayer : MessageChannelSubscriptions.sibylReceivers()/*Bukkit.getOnlinePlayers()*/) {
-      if (plugin.sibyl().isAuthenticated(authenticatedPlayer)) {
-        SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
-      }
+      SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
     }
   }
 }

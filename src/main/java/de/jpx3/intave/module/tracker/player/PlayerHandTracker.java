@@ -1,6 +1,5 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
@@ -17,6 +16,7 @@ import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketReplay;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.player.ItemProperties;
 import de.jpx3.intave.user.MessageChannel;
@@ -237,7 +237,7 @@ public class PlayerHandTracker extends Module {
         BlockFace.DOWN,
         packet.getSequence()
       );
-      PacketEvents.getAPI().getPlayerManager().receivePacketSilently(player, unblockPacket);
+      PacketReplay.receiveFromClient(user, unblockPacket);
     }
   }
 }

@@ -166,7 +166,7 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
     }
     String message = defaultPrefix + player.getName() + " on p[" + pattern + "]" + confidenceDetails + " " + description;
 
-    if (IntaveControl.DEBUG_HEURISTICS && !plugin.sibyl().isAuthenticated(player)) {
+    if (IntaveControl.DEBUG_HEURISTICS) {
       player.sendMessage(message);
     }
 
@@ -296,7 +296,7 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
   @NotNull
   @SuppressWarnings("UnusedAssignment")
   public List<Anomaly> catchAnomaliesOf(User user, boolean delay) {
-    if (user.hasPlayer()) {
+    if (!user.hasPlayer()) {
       return Collections.emptyList();
     }
     Player player = user.player();

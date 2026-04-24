@@ -35,7 +35,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.material.MaterialData;
 import org.bukkit.util.NumberConversions;
 import org.bukkit.util.Vector;
 
@@ -218,22 +217,18 @@ public final class BlockUpdateTracker extends Module {
       WrapperPlayServerMultiBlockChange packet = new WrapperPlayServerMultiBlockChange(event);
       for (WrapperPlayServerMultiBlockChange.EncodedBlock block : packet.getBlocks()) {
         BlockPosition position = new BlockPosition(block.getX(), block.getY(), block.getZ());
-        changes.add(blockChange(player, position, block.getBlockState(playerVersion(player))));
+        changes.add(blockChange(player, position, block.getBlockState(packet.getServerVersion().toClientVersion())));
       }
     } else if (packetType == PacketType.Play.Server.ACKNOWLEDGE_PLAYER_DIGGING) {
       WrapperPlayServerAcknowledgePlayerDigging packet = new WrapperPlayServerAcknowledgePlayerDigging(event);
-      changes.add(blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), WrappedBlockState.getByGlobalId(packet.getClientVersion(), packet.getBlockId())));
+      changes.add(blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), WrappedBlockState.getByGlobalId(packet.getServerVersion().toClientVersion(), packet.getBlockId())));
     }
     return changes;
   }
 
-  private com.github.retrooper.packetevents.protocol.player.ClientVersion playerVersion(Player player) {
-    return com.github.retrooper.packetevents.PacketEvents.getAPI().getPlayerManager().getClientVersion(player);
-  }
-
   private BlockChangeData blockChange(Player player, BlockPosition position, WrappedBlockState state) {
-    MaterialData materialData = SpigotConversionUtil.toBukkitMaterialData(state);
-    return new BlockChangeData(position, materialData.getItemType(), BlockVariantNativeAccess.variantAccess(state));
+    Material material = SpigotConversionUtil.toBukkitBlockData(state).getMaterial();
+    return new BlockChangeData(position, material, BlockVariantNativeAccess.variantAccess(state));
   }
 
   private static boolean inDistance(Collection<BlockChangeData> blockChanges, Location playerLocation, int requiredDistance) {

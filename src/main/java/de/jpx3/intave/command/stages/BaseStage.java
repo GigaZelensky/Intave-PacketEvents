@@ -118,10 +118,7 @@ public final class BaseStage extends CommandStage {
         player.sendMessage(IntavePlugin.prefix() + "You have specified " + modeName + " fine violation output to " + names);
         return;
       }
-    } /*else if (selectedPlayers == null && !IntavePlugin.singletonInstance().sibyl().isAuthenticated(player)) {
-      player.sendMessage(IntavePlugin.prefix() + "/intave verbose <player...>");
-      return;
-    }*/
+    }
 
     user.toggleReceive(MessageChannel.VIOLATION_FINE);
     user.removeChannelConstraint(MessageChannel.VIOLATION_FINE);
@@ -239,8 +236,7 @@ public final class BaseStage extends CommandStage {
 
   @SubCommand(
     selectors = {"alert", "alerts"},
-    hideInHelp = true,
-    description = ""
+    description = "Redirect to verbose notification output"
   )
   public void redirectToVerbose(CommandSender sender) {
     if (!BukkitPermissionCheck.permissionCheck(sender, "intave.command.verbose")) {
@@ -522,9 +518,8 @@ public final class BaseStage extends CommandStage {
   @SubCommand(
     selectors = "root",
     usage = "",
-    description = "",
-    permission = "sibyl",
-    hideInHelp = true
+    description = "Developer and debug tooling",
+    permission = "intave.command"
   )
   @Forward(
     target = RootStage.class
@@ -547,8 +542,8 @@ public final class BaseStage extends CommandStage {
   @SubCommand(
     selectors = "sample",
     usage = "",
-    permission = "sibyl",
-    hideInHelp = true
+    description = "Sample and test tooling",
+    permission = "intave.command"
   )
   @Forward(
     target = SampleStage.class

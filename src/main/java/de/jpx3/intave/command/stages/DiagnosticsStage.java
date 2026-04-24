@@ -166,7 +166,7 @@ public final class DiagnosticsStage extends CommandStage {
   @SubCommand(
     selectors = "trustmap",
     usage = "",
-    permission = "sibyl"
+    permission = "intave.command.diagnostics.performance"
   )
   public void trustfactorMap(User user) {
     Map<TrustFactor, AtomicLong> trustfactorDistribution = new HashMap<>();
@@ -314,7 +314,7 @@ public final class DiagnosticsStage extends CommandStage {
     selectors = "playtime",
     usage = "[<target>]",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command.diagnostics.performance"
   )
   public void playtimeOf(User user, @Optional Player target) {
     Player player = user.player();

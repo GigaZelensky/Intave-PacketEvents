@@ -5,6 +5,7 @@ import de.jpx3.intave.command.CommandStage;
 import de.jpx3.intave.command.Optional;
 import de.jpx3.intave.command.SubCommand;
 import de.jpx3.intave.diagnostic.message.*;
+import de.jpx3.intave.user.MessageChannelSubscriptions;
 import de.jpx3.intave.user.User;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -21,10 +22,11 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "enable",
     description = "Enable debug mode",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void enableAll(User user, @Optional MessageCategory category) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
+    MessageChannelSubscriptions.setSibyl(user.player(), true);
 
     if (category != null) {
       outputConfiguration.activateCategory(category);
@@ -38,7 +40,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "disable",
     description = "Disable debug mode",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void disableAll(User user, @Optional MessageCategory category) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -48,6 +50,7 @@ public final class InternalDebugStage extends CommandStage {
       user.player().sendMessage(ChatColor.GREEN + "Debug mode for " + category.description().toLowerCase(Locale.ROOT) + " deactivated");
     } else {
       outputConfiguration.deactivateAllCategories();
+      MessageChannelSubscriptions.setSibyl(user.player(), false);
       user.player().sendMessage(ChatColor.GREEN + "All debug modes disabled.");
     }
   }
@@ -55,7 +58,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "color",
     description = "Set color",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setColor(User user, MessageCategory category, ChatColor color) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -66,7 +69,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "severity",
     description = "Set required severity",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setMinimumSeverity(User user, MessageSeverity severity) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -77,7 +80,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "detail",
     description = "Set message",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setOutputDetail(User user, MessageDetail detail, @Optional MessageCategory category) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -93,7 +96,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "prefix",
     description = "Set formatter",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setFormatter(User user, PrefixDetail detail) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -104,7 +107,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "settarget",
     description = "Set target",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setTarget(User user, MessageCategory cat, @Optional Player[] targets) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -125,7 +128,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "selftarget",
     description = "Set self target",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setSelfTarget(User user, MessageCategory cat) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -136,7 +139,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "remtarget",
     description = "Remove target",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void removeTarget(User user, MessageCategory cat) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -147,7 +150,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "status",
     description = "Remove self target",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void status(User user) {
     OutputConfiguration outputConfiguration = DebugBroadcast.configurationOf(user.id());
@@ -168,7 +171,7 @@ public final class InternalDebugStage extends CommandStage {
   @SubCommand(
     selectors = "jump",
     description = "Cause a physics false flag, resulting in a jump",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void falseFlag(User user) {
     user.meta().movement().baseMotionY = 2;

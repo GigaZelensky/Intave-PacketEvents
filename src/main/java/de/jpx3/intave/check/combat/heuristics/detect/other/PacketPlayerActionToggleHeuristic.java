@@ -19,7 +19,6 @@ import de.jpx3.intave.user.meta.*;
 import org.bukkit.entity.Player;
 
 import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.*;
-import static de.jpx3.intave.entity.datawatcher.DataWatcherAccess.WATCHER_SNEAK_ID;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuristics, PacketPlayerActionToggleHeuristic.PacketSprintToggleHeuristicMeta> {
@@ -103,7 +102,7 @@ public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuri
             user.nerf(AttackNerfStrategy.CANCEL, "12");
           } else {
             punishmentData.timeLastSneakToggleCancel = System.currentTimeMillis();
-            Synchronizer.synchronize(() -> DataWatcherAccess.setDataWatcherFlag(player, WATCHER_SNEAK_ID, false));
+            Synchronizer.synchronize(() -> DataWatcherAccess.setSneakingFlag(player, false));
           }
         }
       }

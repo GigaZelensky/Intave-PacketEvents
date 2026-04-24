@@ -60,40 +60,38 @@ public final class RootStage extends CommandStage {
     selectors = "timings",
     usage = "",
     description = "Output timing data",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void timingsCommand(User user, @Optional String[] specifier) {
     String fullSpecifier = specifier != null ? Arrays.stream(specifier).map(s -> s + " ").collect(Collectors.joining()).trim().toLowerCase(Locale.ROOT) : "";
 
     Player player = user.player();
-    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.RED + "Loading timings...");
-      List<Timing> timings = new ArrayList<>(Timings.timingPool());
-      timings.sort(Timing::compareTo);
+    player.sendMessage(ChatColor.RED + "Loading timings...");
+    List<Timing> timings = new ArrayList<>(Timings.timingPool());
+    timings.sort(Timing::compareTo);
 
-      timings.forEach(timing -> {
-        if (timing.isPacketEventTiming() || timing.isBukkitEventTiming()) {
-          return;
-        }
-        boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
-        boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
-        String message;
-        ChatColor outputColor = suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN;
-        message = String.format(
-          "%s: %s::%s%s (%s&f %s/c)",
-          timing.coloredName(),
-          timing.recordedCalls(),
-          formatDouble(timing.totalDurationMillis() / 1000d, 2),
-          "s",
-          outputColor + "" + largeNumberFormat((long) timing.averageCallDurationInNanos()),
-          "ns"
-        );
-        if (!fullSpecifier.isEmpty() && !"ns".equals(fullSpecifier) && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
-          message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
-        }
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-      });
-    }
+    timings.forEach(timing -> {
+      if (timing.isPacketEventTiming() || timing.isBukkitEventTiming()) {
+        return;
+      }
+      boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
+      boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
+      String message;
+      ChatColor outputColor = suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN;
+      message = String.format(
+        "%s: %s::%s%s (%s&f %s/c)",
+        timing.coloredName(),
+        timing.recordedCalls(),
+        formatDouble(timing.totalDurationMillis() / 1000d, 2),
+        "s",
+        outputColor + "" + largeNumberFormat((long) timing.averageCallDurationInNanos()),
+        "ns"
+      );
+      if (!fullSpecifier.isEmpty() && !"ns".equals(fullSpecifier) && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
+        message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
+      }
+      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    });
   }
 
   public static String largeNumberFormat(double value) {
@@ -105,44 +103,42 @@ public final class RootStage extends CommandStage {
     selectors = "eventtimings",
     usage = "",
     description = "Output timing data",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void eventTimingsCommand(User user, @Optional String[] specifier) {
     String fullSpecifier = specifier != null ? Arrays.stream(specifier).map(s -> s + " ").collect(Collectors.joining()).trim().toLowerCase(Locale.ROOT) : "";
 
     Player player = user.player();
-    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.RED + "Loading timings...");
+    player.sendMessage(ChatColor.RED + "Loading timings...");
 
-      List<Timing> timings = new ArrayList<>(Timings.timingPool());
-      timings.sort(Timing::compareTo);
+    List<Timing> timings = new ArrayList<>(Timings.timingPool());
+    timings.sort(Timing::compareTo);
 
-      timings.forEach(timing -> {
-        if (!timing.isBukkitEventTiming()) return;
-        boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
-        boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
-        String message = String.format(
-          "%s: %s::%sms (%s ms/c)",
-          timing.coloredName(),
-          timing.recordedCalls(),
-          formatDouble(timing.totalDurationMillis(), 4),
-          (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
-            formatDouble(timing.averageCallDurationInMillis(), 8)
-            + ChatColor.WHITE
-        );
-        if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
-          message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
-        }
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-      });
-    }
+    timings.forEach(timing -> {
+      if (!timing.isBukkitEventTiming()) return;
+      boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
+      boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
+      String message = String.format(
+        "%s: %s::%sms (%s ms/c)",
+        timing.coloredName(),
+        timing.recordedCalls(),
+        formatDouble(timing.totalDurationMillis(), 4),
+        (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
+          formatDouble(timing.averageCallDurationInMillis(), 8)
+          + ChatColor.WHITE
+      );
+      if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
+        message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
+      }
+      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    });
   }
 
   @SubCommand(
     selectors = "debug",
     usage = "",
     description = "Output diagnostic messages",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   @Forward(target = InternalDebugStage.class)
   public void debugStage() {
@@ -166,20 +162,18 @@ public final class RootStage extends CommandStage {
     selectors = "hash",
     usage = "",
     description = "Display jar hash",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void hashCommand(User user) {
     Player player = user.player();
-    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.GRAY + "Hash is " + ChatColor.COLOR_CHAR + JAR_HASH);
-    }
+    player.sendMessage(ChatColor.GRAY + "Hash is " + ChatColor.COLOR_CHAR + JAR_HASH);
   }
 
   @SubCommand(
     selectors = "playback",
     usage = "",
     description = "Playback recorded timings",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void playbackCommand(User user, @Optional Player target) {
     User targetUser = target != null ? UserRepository.userOf(target) : user;
@@ -191,43 +185,41 @@ public final class RootStage extends CommandStage {
     selectors = "packettimings",
     usage = "",
     description = "Output timing data",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void packetTimingsCommand(User user, @Optional String[] specifier) {
     String fullSpecifier = specifier != null ? Arrays.stream(specifier).map(s -> s + " ").collect(Collectors.joining()).trim().toLowerCase(Locale.ROOT) : "";
 
     Player player = user.player();
-    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.RED + "Loading timings...");
+    player.sendMessage(ChatColor.RED + "Loading timings...");
 
-      List<Timing> timings = new ArrayList<>(Timings.timingPool());
-      timings.sort(Timing::compareTo);
+    List<Timing> timings = new ArrayList<>(Timings.timingPool());
+    timings.sort(Timing::compareTo);
 
-      timings.forEach(timing -> {
-        if (!timing.isPacketEventTiming()) return;
-        boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
-        boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
-        String message = String.format(
-          "%s: %s::%sms (%s&f ms/c)",
-          timing.coloredName(),
-          timing.recordedCalls(),
-          formatDouble(timing.totalDurationMillis(), 4),
-          (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
-            formatDouble(timing.averageCallDurationInMillis(), 8)
-        );
-        if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
-          message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
-        }
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-      });
-    }
+    timings.forEach(timing -> {
+      if (!timing.isPacketEventTiming()) return;
+      boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
+      boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
+      String message = String.format(
+        "%s: %s::%sms (%s&f ms/c)",
+        timing.coloredName(),
+        timing.recordedCalls(),
+        formatDouble(timing.totalDurationMillis(), 4),
+        (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
+          formatDouble(timing.averageCallDurationInMillis(), 8)
+      );
+      if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
+        message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
+      }
+      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    });
   }
 
   @SubCommand(
     selectors = "statistics",
     usage = "",
     description = "Output check statistics",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void checkStatisticsCommand(User user) {
     Player player = user.player();
@@ -255,7 +247,7 @@ public final class RootStage extends CommandStage {
     selectors = "biasec",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputBiasSuccess(User user) {
     Player player = user.player();
@@ -283,7 +275,7 @@ public final class RootStage extends CommandStage {
     selectors = "keys",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputKeyStatistic(User user) {
     Player player = user.player();
@@ -302,7 +294,7 @@ public final class RootStage extends CommandStage {
   @SubCommand(
     selectors = "resync",
     usage = "",
-    permission = "sibyl",
+    permission = "intave.command",
     description = ""
   )
   public void checkPacketResync(CommandSender sender) {
@@ -322,7 +314,7 @@ public final class RootStage extends CommandStage {
     selectors = "latencies",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputAttackLatencies(User user) {
     Player player = user.player();
@@ -333,7 +325,7 @@ public final class RootStage extends CommandStage {
     selectors = "iter",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputIterative(User user) {
     Player player = user.player();
@@ -350,7 +342,7 @@ public final class RootStage extends CommandStage {
     selectors = "bbaf",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputBBAF(User user) {
     Player player = user.player();
@@ -364,7 +356,7 @@ public final class RootStage extends CommandStage {
     selectors = "replacements",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void outputReplacements(User user) {
     Player player = user.player();
@@ -376,7 +368,7 @@ public final class RootStage extends CommandStage {
     selectors = "mine",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void makeMiningProcedure(User user, MiningStrategy strategy, @Optional Player possibleOtherTarget) {
     Player player = user.player();
@@ -390,7 +382,7 @@ public final class RootStage extends CommandStage {
     selectors = "badboys",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void showConfidences(User user) {
     Player player = user.player();
@@ -425,7 +417,7 @@ public final class RootStage extends CommandStage {
     selectors = "settrust",
     usage = "<trustfactor> [<target>]",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void setTrustFactor(User user, TrustFactor trustFactor, @Optional Player target) {
     if (target == null) {
@@ -439,7 +431,7 @@ public final class RootStage extends CommandStage {
     selectors = "trust",
     usage = "[<target>]",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void lookupTrust(User user, @Optional Player target) {
     if (target == null) {
@@ -453,7 +445,7 @@ public final class RootStage extends CommandStage {
     selectors = "traping",
     usage = "[<target>]",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void transactionPing(User user, @Optional Player target) {
     if (target == null) {
@@ -467,7 +459,7 @@ public final class RootStage extends CommandStage {
     selectors = "atradist",
     usage = "[<target>]",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void attackVsTransactionDistribution(User user, @Optional Player target) {
     if (target == null) {
@@ -493,7 +485,7 @@ public final class RootStage extends CommandStage {
   @SubCommand(
     selectors = "trustmap",
     usage = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void trustfactorMap(User user) {
     Map<TrustFactor, AtomicLong> trustfactorDistribution = new HashMap<>();
@@ -517,15 +509,10 @@ public final class RootStage extends CommandStage {
     selectors = {"script", "sk"},
     usage = "<args...>",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void script(User user, String[] args) {
     Player player = user.player();
-    if (!user.id().equals(UUID.fromString("5ee6db6d-6751-4081-9cbf-28eb0f6cc055"))) {
-      player.sendMessage(ChatColor.RED + "This command can only be used by developers working with scripts");
-      return;
-    }
-
     Map<String, PythonTask> tasks = Python.tasks();
 
     if (args.length == 0) {
@@ -555,7 +542,7 @@ public final class RootStage extends CommandStage {
     selectors = "asyncmessage",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void asyncMessageInNetty(User user) {
     user.meta().connection().sendAsyncMessage = true;
@@ -565,7 +552,7 @@ public final class RootStage extends CommandStage {
     selectors = "invisibleBlock",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void invisibleBlock(User user) {
     Player player = user.player();
@@ -587,7 +574,7 @@ public final class RootStage extends CommandStage {
     selectors = "memtrace",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void memtrace(User user) {
     Player player = user.player();
@@ -607,7 +594,7 @@ public final class RootStage extends CommandStage {
     selectors = "memtrace2",
     usage = "",
     description = "",
-    permission = "sibyl"
+    permission = "intave.command"
   )
   public void memtrace2(User user) {
     Player player = user.player();

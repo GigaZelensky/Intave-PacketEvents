@@ -5,6 +5,7 @@ import com.github.retrooper.packetevents.event.CancellableEvent;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
@@ -286,7 +287,7 @@ public final class PacketSubscriptionLinker extends Module {
             try {
               arguments[i] = wrapperFor(parameterType, event);
             } catch (IllegalStateException exception) {
-              noteWrapperDecodeFailure(calledMethod, subscriber, parameterType, event, exception);
+              noteWrapperDecodeFailure(calledMethod, subscriber, parameterType, event);
               return;
             }
           }
@@ -305,6 +306,7 @@ public final class PacketSubscriptionLinker extends Module {
   }
 
   private PacketWrapper<?> wrapperFor(Class<?> wrapperType, ProtocolPacketEvent event) {
+    int readerIndex = ByteBufHelper.readerIndex(event.getByteBuf());
     try {
       Constructor<?> constructor = event instanceof PacketReceiveEvent
         ? wrapperType.getConstructor(PacketReceiveEvent.class)
@@ -312,6 +314,8 @@ public final class PacketSubscriptionLinker extends Module {
       return (PacketWrapper<?>) constructor.newInstance(event);
     } catch (Exception exception) {
       throw new IllegalStateException("Unable to create PacketEvents wrapper " + wrapperType.getName() + " for " + event.getPacketType().getName(), exception);
+    } finally {
+      ByteBufHelper.readerIndex(event.getByteBuf(), readerIndex);
     }
   }
 
@@ -319,8 +323,7 @@ public final class PacketSubscriptionLinker extends Module {
     Method calledMethod,
     PacketEventSubscriber subscriber,
     Class<?> wrapperType,
-    ProtocolPacketEvent event,
-    IllegalStateException exception
+    ProtocolPacketEvent event
   ) {
     String warningKey = calledMethod.toGenericString() + "|" + wrapperType.getName() + "|" + event.getPacketType().getName();
     if (wrapperDecodeWarnings.add(warningKey)) {

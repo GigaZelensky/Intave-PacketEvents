@@ -10,6 +10,7 @@ import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.cleanup.GarbageCollector;
 import de.jpx3.intave.cleanup.ShutdownTasks;
 import de.jpx3.intave.module.Module;
+import de.jpx3.intave.module.linker.packet.PacketEventBuffer;
 import de.jpx3.intave.user.User;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCountUtil;
@@ -153,7 +154,7 @@ public class PacketLogging extends Module {
   }
 
   private static String packetContent(ProtocolPacketEvent event) {
-    Object buffer = event.getFullBufferClone();
+    Object buffer = PacketEventBuffer.cloneFullBuffer(event);
     if (!(buffer instanceof ByteBuf)) {
       return "{buffer=" + String.valueOf(buffer) + "}";
     }

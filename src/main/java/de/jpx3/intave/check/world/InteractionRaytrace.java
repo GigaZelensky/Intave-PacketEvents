@@ -7,6 +7,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.protocol.world.BlockFace;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
@@ -29,6 +30,7 @@ import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.block.fluid.Fluids;
 import de.jpx3.intave.block.type.BlockTypeAccess;
 import de.jpx3.intave.block.variant.BlockVariant;
+import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.block.variant.BlockVariantRegister;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
 import de.jpx3.intave.check.MetaCheck;
@@ -40,6 +42,7 @@ import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketReplay;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationContext;
@@ -1200,9 +1203,13 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       return;
     }
     Block block = VolatileBlockAccess.blockAccess(location);
+    WrappedBlockState blockState = BlockVariantNativeAccess.blockStateAccess(block);
+    if (blockState.getType().isAir() && !BlockVariantNativeAccess.isAir(block.getType())) {
+      return;
+    }
     WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(
       new com.github.retrooper.packetevents.util.Vector3i(location.getBlockX(), location.getBlockY(), location.getBlockZ()),
-      SpigotConversionUtil.fromBukkitMaterialData(block.getState().getData())
+      blockState
     );
     PacketEvents.getAPI().getPlayerManager().sendPacket(player, packet);
     if (IntaveControl.DEBUG_INTERACTION_PACKET_ROUTING) {
@@ -1214,7 +1221,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     if (IntaveControl.DEBUG_INTERACTION_PACKET_ROUTING) {
       System.out.println("[Intave/DIPR] ROUTED PACKET " + packet.getClass().getSimpleName());
     }
-    PacketEvents.getAPI().getPlayerManager().receivePacketSilently(player, packet);
+    PacketReplay.receiveFromClient(userOf(player), packet);
   }
 
   private WrapperPlayClientPlayerBlockPlacement copyBlockPlacementPacket(WrapperPlayClientPlayerBlockPlacement packet) {
@@ -1256,7 +1263,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   }
 
   private void writeEnumDirection(PacketWrapper<?> packet, Direction direction) {
-    BlockFace face = BlockFace.values()[direction.getIndex()];
+    BlockFace face = BlockFace.getBlockFaceByValue(direction.getIndex());
     if (packet instanceof WrapperPlayClientPlayerBlockPlacement) {
       ((WrapperPlayClientPlayerBlockPlacement) packet).setFace(face);
     } else if (packet instanceof WrapperPlayClientPlayerDigging) {

@@ -3,6 +3,7 @@ package de.jpx3.intave.check.combat.heuristics.detect.other;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.Anomaly;
@@ -41,11 +42,7 @@ public final class PacketOrderHeuristic extends MetaCheckPart<Heuristics, Packet
     PacketTypeCommon type = event.getPacketType();
     PacketOrderHeuristicMeta meta = metaOf(player);
 
-    boolean isMovement = type == PacketType.Play.Client.PLAYER_FLYING
-      || type == PacketType.Play.Client.PLAYER_POSITION
-      || type == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION
-      || type == PacketType.Play.Client.PLAYER_ROTATION;
-
+    boolean isMovement = WrapperPlayClientPlayerFlying.isFlying(type);
     boolean isTransaction = type == PacketType.Play.Client.WINDOW_CONFIRMATION;
 
     if (isMovement) {

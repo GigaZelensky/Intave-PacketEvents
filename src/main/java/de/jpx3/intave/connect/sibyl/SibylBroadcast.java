@@ -1,6 +1,5 @@
 package de.jpx3.intave.connect.sibyl;
 
-import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.user.MessageChannelSubscriptions;
 import org.bukkit.Bukkit;
@@ -25,12 +24,8 @@ public final class SibylBroadcast {
       Synchronizer.synchronize(() -> broadcast(message));
       return;
     }
-    IntavePlugin intavePlugin = IntavePlugin.singletonInstance();
     for (Player authenticatedPlayer : receiver) {
-      if (intavePlugin.sibyl().isAuthenticated(authenticatedPlayer)) {
-//        authenticatedPlayer.sendMessage(message);
-        SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
-      }
+      SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
     }
   }
 }

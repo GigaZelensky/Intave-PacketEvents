@@ -1,7 +1,6 @@
 package de.jpx3.intave.check.combat;
 
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
@@ -23,6 +22,7 @@ import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.feedback.FeedbackAnalysis;
 import de.jpx3.intave.module.feedback.FeedbackAnalysis.FeedbackAnalysisMeta.LatencyInfo;
+import de.jpx3.intave.module.linker.packet.PacketReplay;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -712,7 +712,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
    * @since 14.6.0
    */
   private void redirectValidPacket(Player player, PacketWrapper<?> packet) {
-    PacketEvents.getAPI().getPlayerManager().receivePacketSilently(player, packet);
+    PacketReplay.receiveFromClient(userOf(player), packet);
   }
 
   private WrapperPlayClientInteractEntity copyAttackPacket(WrapperPlayClientInteractEntity packet) {

@@ -92,7 +92,7 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
           //dmc6
           user.nerf(AttackNerfStrategy.BLOCKING, "6");
           punishmentData.timeLastBlockCancel = System.currentTimeMillis();
-          Synchronizer.synchronize(() -> DataWatcherAccess.setDataWatcherFlag(player, DataWatcherAccess.WATCHER_BLOCKING_ID, false));
+          Synchronizer.synchronize(() -> DataWatcherAccess.setBlockingFlag(player, false));
         }
 
       }

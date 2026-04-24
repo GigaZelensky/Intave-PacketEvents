@@ -59,7 +59,6 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.util.Vector;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -1144,7 +1143,10 @@ public final class Physics extends Check {
       return;
     }
     Block block = VolatileBlockAccess.blockAccess(location);
-    WrappedBlockState blockState = SpigotConversionUtil.fromBukkitMaterialData(block.getState().getData());
+    WrappedBlockState blockState = BlockVariantNativeAccess.blockStateAccess(block);
+    if (blockState.getType().isAir() && !BlockVariantNativeAccess.isAir(block.getType())) {
+      return;
+    }
     Vector3i position = new Vector3i(location.getBlockX(), location.getBlockY(), location.getBlockZ());
     PacketEvents.getAPI().getPlayerManager().sendPacket(player, new WrapperPlayServerBlockChange(position, blockState));
   }

@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.access.UnsupportedFallbackOperationException;
 import de.jpx3.intave.diagnostic.timings.Timing;
@@ -59,11 +60,10 @@ public final class FilteringPacketAdapter extends PacketListenerAbstract impleme
       timing.start();
       User user = UserRepository.userOf((Player) event.getPlayer());
       if (user.shouldIgnoreNextInboundPacket()) {
-        user.receiveNextInboundPacketAgain();
         return;
       }
       try {
-        subscriber.apply(user, usr -> executor.invoke(usr, event));
+        invokeSubscriber(user, event);
       } catch (Throwable throwable) {
         throwable.printStackTrace();
       }
@@ -87,10 +87,9 @@ public final class FilteringPacketAdapter extends PacketListenerAbstract impleme
     try {
       User user = UserRepository.userOf((Player) event.getPlayer());
       if (user.shouldIgnoreNextOutboundPacket()) {
-        user.receiveNextOutboundPacketAgain();
         return;
       }
-      subscriber.apply(user, usr -> executor.invoke(usr, event));
+      invokeSubscriber(user, event);
     } catch (UnsupportedFallbackOperationException ignored) {
       // ignored
     } catch (RuntimeException exception) {
@@ -106,9 +105,32 @@ public final class FilteringPacketAdapter extends PacketListenerAbstract impleme
 
   private boolean validateEvent(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    return player != null
-      && (ignoreCancelled || !event.isCancelled())
-      && (UserRepository.hasUser(player) || event.getPacketType() == PacketType.Play.Server.JOIN_GAME);
+    PacketTypeCommon packetType = event.getPacketType();
+    boolean bootstrapPacket = packetType == PacketType.Play.Server.JOIN_GAME
+      || packetType == PacketType.Configuration.Client.PLUGIN_MESSAGE;
+    if (!ignoreCancelled && event.isCancelled()) {
+      return false;
+    }
+    if (player == null) {
+      return packetType == PacketType.Configuration.Client.PLUGIN_MESSAGE;
+    }
+    return UserRepository.hasUser(player) || bootstrapPacket;
+  }
+
+  private void invokeSubscriber(User user, ProtocolPacketEvent event) {
+    PacketWrapper<?> lastUsedWrapper = event.getLastUsedWrapper();
+    boolean needsReEncode = event.needsReEncode();
+    event.markForReEncode(false);
+    PacketEventBuffer.capture(event);
+    try {
+      subscriber.apply(user, usr -> executor.invoke(usr, event));
+    } finally {
+      PacketEventBuffer.release(event);
+      if (!event.needsReEncode()) {
+        event.setLastUsedWrapper(lastUsedWrapper);
+        event.markForReEncode(needsReEncode);
+      }
+    }
   }
 
   public PacketEventSubscriber subscriber() {

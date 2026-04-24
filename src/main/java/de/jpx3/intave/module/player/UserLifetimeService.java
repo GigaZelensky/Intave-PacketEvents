@@ -47,7 +47,9 @@ public final class UserLifetimeService extends Module {
   }
 
   private void setupUser(Player player) {
-    UserRepository.registerUser(player);
+    if (!UserRepository.hasUser(player)) {
+      UserRepository.registerUser(player);
+    }
     User user = UserRepository.userOf(player);
     Synchronizer.synchronizeDelayed(user::delayedSetup, 20);
   }

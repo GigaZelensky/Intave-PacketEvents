@@ -13,6 +13,7 @@ import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.feedback.FeedbackOptions;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketEventBuffer;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.tracker.player.AbilityTracker;
@@ -80,7 +81,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
     User user = userOf(player);
     PlayerTimeMeta checkMeta = metaOf(user);
     playerJoinTimeCache.put(player.getUniqueId(), System.nanoTime());
-    PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, event.getFullBufferClone());
+    PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, PacketEventBuffer.cloneFullBuffer(event));
     user.tickFeedback(() -> checkMeta.gameJoinReceived = true, FeedbackOptions.SELF_SYNCHRONIZATION);
     event.setCancelled(true);
   }

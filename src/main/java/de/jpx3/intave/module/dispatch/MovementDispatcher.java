@@ -1,6 +1,5 @@
 package de.jpx3.intave.module.dispatch;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
@@ -47,6 +46,7 @@ import de.jpx3.intave.module.feedback.Superposition;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.Engine;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketReplay;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.linker.packet.PrioritySlot;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
@@ -693,7 +693,7 @@ public final class MovementDispatcher extends Module {
       BlockFace.DOWN,
       0
     );
-    PacketEvents.getAPI().getPlayerManager().receivePacketSilently(player, packet);
+    PacketReplay.receiveFromClient(user, packet);
     updatePlayerHandItem(player);
     Synchronizer.synchronize(player::updateInventory);
     if (IntaveControl.DEBUG_ITEM_USAGE) {
@@ -1202,7 +1202,7 @@ public final class MovementDispatcher extends Module {
   ) {
     Player player = user.player();
     MovementMetadata movement = user.meta().movement();
-    Material material = SpigotConversionUtil.toBukkitMaterialData(packet.getBlockType()).getItemType();
+    Material material = SpigotConversionUtil.toBukkitBlockData(packet.getBlockType()).getMaterial();
     if (SHULKER_BOX_MATERIALS.contains(material)) {
       BlockPosition blockPosition = PacketEventsConversions.toBlockPosition(packet.getBlockPosition());
       World world = player.getWorld();

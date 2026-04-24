@@ -1,6 +1,5 @@
 package de.jpx3.intave.user.permission;
 
-import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import org.bukkit.entity.Player;
@@ -9,17 +8,9 @@ import org.bukkit.permissions.Permissible;
 public final class BukkitPermissionCheck {
   public static boolean permissionCheck(Permissible permissible, String permission) {
     if (permissible instanceof Player) {
-      if ("sibyl".equalsIgnoreCase(permission)) {
-        return IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) permissible);
-      }
       return playerPermissionCheck((Player) permissible, permission);
-    } else {
-      // non-player can not and will never inherit sibyl permissions
-      if ("sibyl".equalsIgnoreCase(permission)) {
-        return false;
-      }
-      return nativePermissionCheck(permissible, permission);
     }
+    return nativePermissionCheck(permissible, permission);
   }
 
   private static boolean playerPermissionCheck(Player player, String permission) {

@@ -3,11 +3,13 @@ package de.jpx3.intave.check.world.breakspeedlimiter;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
+import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.executor.Synchronizer;
@@ -23,7 +25,6 @@ import de.jpx3.intave.user.meta.ProtocolMetadata;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
@@ -131,7 +132,11 @@ public final class RestartCheck extends MetaCheckPart<BreakSpeedLimiter, Restart
     }
     Block block = VolatileBlockAccess.blockAccess(location);
     Vector3i position = new Vector3i(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-    WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(position, SpigotConversionUtil.fromBukkitMaterialData(block.getState().getData()));
+    WrappedBlockState blockState = BlockVariantNativeAccess.blockStateAccess(block);
+    if (blockState.getType().isAir() && !BlockVariantNativeAccess.isAir(block.getType())) {
+      return;
+    }
+    WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(position, blockState);
     PacketEvents.getAPI().getPlayerManager().sendPacket(player, packet);
   }
 

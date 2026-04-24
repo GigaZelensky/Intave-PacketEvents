@@ -46,19 +46,17 @@ public final class DebugBroadcast {
     }
     SibylIntegrationService sibyl = IntavePlugin.singletonInstance().sibyl();
     for (Player receiver : receivers) {
-      if (sibyl.isAuthenticated(receiver)) {
-        // Use new sibyl if encryption available otherwise use fallback method
-        if (sibyl.encryptionActiveFor(receiver)) {
-          sibyl.publishDebug(receiver, category.ordinal(), fullMessage, shortMessage);
-        } else {
-          OutputConfiguration configuration = configurationOf(receiver.getUniqueId());
-          if (configuration.canOutput(category, target) && !severity.isLowerThan(configuration.minimumSeverity())) {
-            String color = configuration.colorOf(category).toString();
-            String prefix = configuration.prefixSelector().formatPrefix(severity, category.name());
-            String theMessage = configuration.detailOf(category).select(fullMessage, shortMessage);
-            String completeMessage = ChatColor.RED + "(insecure) " + color + prefix + " " + theMessage;
-            receiver.sendMessage(completeMessage);
-          }
+      // Keep encrypted Sibyl output for clients that still use it, but make plain chat debug the
+      // normal open-source fallback instead of requiring Sibyl authentication.
+      if (sibyl.encryptionActiveFor(receiver)) {
+        sibyl.publishDebug(receiver, category.ordinal(), fullMessage, shortMessage);
+      } else {
+        OutputConfiguration configuration = configurationOf(receiver.getUniqueId());
+        if (configuration.canOutput(category, target) && !severity.isLowerThan(configuration.minimumSeverity())) {
+          String color = configuration.colorOf(category).toString();
+          String prefix = configuration.prefixSelector().formatPrefix(severity, category.name());
+          String theMessage = configuration.detailOf(category).select(fullMessage, shortMessage);
+          receiver.sendMessage(color + prefix + " " + theMessage);
         }
       }
     }

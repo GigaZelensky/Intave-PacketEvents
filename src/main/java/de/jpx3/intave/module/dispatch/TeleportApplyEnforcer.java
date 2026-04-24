@@ -3,6 +3,7 @@ package de.jpx3.intave.module.dispatch;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.github.retrooper.packetevents.util.Vector3d;
@@ -101,27 +102,42 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     boolean relativeZMotion = flags.contains(Relative.DELTA_Z);
     boolean rotateDelta = flags.contains(Relative.ROTATE_DELTA);
 
-    Boolean funkyBoolean = packet.isDismountVehicle();
+    Boolean dismountVehicle = packet.isDismountVehicle();
+    RelativeFlag packetFlags = packet.getRelativeFlags();
+    boolean flagModification = false;
 
     if (relativeX) {
       positionX += user.meta().movement().verifiedPositionX();
+      packet.setX(positionX);
+      packetFlags = packetFlags.set(RelativeFlag.X, false);
+      flagModification = true;
     }
 
     if (relativeY) {
       positionY += user.meta().movement().verifiedPositionY();
+      packet.setY(positionY);
+      packetFlags = packetFlags.set(RelativeFlag.Y, false);
+      flagModification = true;
     }
 
     if (relativeZ) {
       positionZ += user.meta().movement().verifiedPositionZ();
+      packet.setZ(positionZ);
+      packetFlags = packetFlags.set(RelativeFlag.Z, false);
+      flagModification = true;
+    }
+
+    if (flagModification) {
+      packet.setRelativeFlags(packetFlags);
+      event.markForReEncode(true);
     }
 
     boolean expectRotation = false;//!flags.contains(TeleportFlag.X_ROT) && !flags.contains(TeleportFlag.Y_ROT);
 
     if (IntaveControl.DEBUG_TELEPORT_PACKET_STACKTRACE) {
-      System.out.println("Teleporting " + player.getName() + " to " + positionX + ", " + positionY + ", " + positionZ + " with flags " + flags + " and funkyBoolean " + funkyBoolean);
+      System.out.println("Teleporting " + player.getName() + " to " + positionX + ", " + positionY + ", " + positionZ + " with flags " + flags + " and dismountVehicle " + dismountVehicle);
       Thread.dumpStack();
     }
-    // dump packet
 
     Location teleportLocation = new Location(player.getWorld(), positionX, positionY, positionZ, yaw, pitch);
     movementData.teleportLocation = teleportLocation;
@@ -170,19 +186,7 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     movementData.awaitOutgoingTeleport = false;
     movementData.expectTeleportWithRotation = expectRotation;
     movementData.teleportResendCountdown = 20;
-//    movementData.outgoingTeleportCountdown = 5;
     movementData.isTeleportConfirmationPacket = false;
-  }
-
-  @PacketSubscription(
-      priority = ListenerPriority.MONITOR,
-      packetsOut = {
-          POSITION
-      }
-  )
-  public void preserveOutgoingTeleportPacket(ProtocolPacketEvent event) {
-    event.markForReEncode(false);
-    event.setLastUsedWrapper(null);
   }
 
   private WrapperPlayServerPlayerPositionAndLook outgoingTeleportPacket(ProtocolPacketEvent event) {
@@ -192,13 +196,9 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     if (event.getLastUsedWrapper() instanceof WrapperPlayServerPlayerPositionAndLook) {
       return (WrapperPlayServerPlayerPositionAndLook) event.getLastUsedWrapper();
     }
-    PacketSendEvent clonedEvent = null;
+    int readerIndex = ByteBufHelper.readerIndex(event.getByteBuf());
     try {
-      clonedEvent = ((PacketSendEvent) event).clone();
-      if (clonedEvent == null) {
-        return null;
-      }
-      return new WrapperPlayServerPlayerPositionAndLook(clonedEvent);
+      return new WrapperPlayServerPlayerPositionAndLook((PacketSendEvent) event);
     } catch (RuntimeException exception) {
       if (!teleportPacketDecodeWarningShown) {
         teleportPacketDecodeWarningShown = true;
@@ -206,9 +206,7 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
       }
       return null;
     } finally {
-      if (clonedEvent != null) {
-        clonedEvent.cleanUp();
-      }
+      ByteBufHelper.readerIndex(event.getByteBuf(), readerIndex);
     }
   }
 
@@ -226,12 +224,6 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
     Integer teleportId = packet.getTeleportId();
 
     if (movementData.teleportId == teleportId) {
-//      Location teleportLocation = movementData.teleportLocation;
-//      double positionX = teleportLocation.getX();
-//      double positionY = teleportLocation.getY();
-//      double positionZ = teleportLocation.getZ();
-//      releaseAwaitTeleportLock(player);
-//      applyPositionConfirmationUpdate(player, positionX, positionY, positionZ);
       movementData.expectTeleport = true;
     }
   }

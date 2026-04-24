@@ -47,15 +47,20 @@ public abstract class TickAlignedHistoryBlueprint<E extends TickAlignedMeta> ext
         meta.attacks++;
       }
     } else if (type == PacketType.Play.Client.ANIMATION) {
+      if (meta.breakingBlock || user.meta().attack().inBreakProcess) {
+        meta.breakingBlock = true;
+        return;
+      }
       meta.clicks++;
     } else if (type == PacketType.Play.Client.PLAYER_DIGGING) {
       DiggingAction digType = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event).getAction();
-//      if (digType == )
       if (digType == DiggingAction.DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
 
-      } else {
-        meta.breakingBlock = user.meta().attack().inBreakProcess;
-        meta.places++;
+      } else if (digType == DiggingAction.START_DIGGING) {
+        meta.breakingBlock = true;
+      } else if (digType == DiggingAction.FINISHED_DIGGING
+        || digType == DiggingAction.CANCELLED_DIGGING) {
+        meta.breakingBlock = false;
       }
     }
   }
@@ -73,10 +78,11 @@ public abstract class TickAlignedHistoryBlueprint<E extends TickAlignedMeta> ext
     TickAlignedMeta meta = metaOf(user);
     TickAction action = TickAction.NOTHING;
     int intensity = 0;
+    int clicks = meta.breakingBlock ? 0 : meta.clicks;
 
-    if (meta.clicks > 0) {
+    if (clicks > 0) {
       action = TickAction.CLICK;
-      intensity = meta.clicks;
+      intensity = clicks;
     }
     if (meta.attacks > 0) {
       action = TickAction.ATTACK;

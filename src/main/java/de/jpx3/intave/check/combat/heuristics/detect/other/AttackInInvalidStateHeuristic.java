@@ -1,6 +1,5 @@
 package de.jpx3.intave.check.combat.heuristics.detect.other;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.world.BlockFace;
@@ -15,6 +14,7 @@ import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.Anomaly;
 import de.jpx3.intave.check.combat.heuristics.Confidence;
 import de.jpx3.intave.executor.Synchronizer;
+import de.jpx3.intave.module.linker.packet.PacketReplay;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -88,7 +88,7 @@ public final class AttackInInvalidStateHeuristic extends MetaCheckPart<Heuristic
         BlockFace.DOWN,
         0
       );
-      PacketEvents.getAPI().getPlayerManager().receivePacketSilently(player, packet);
+      PacketReplay.receiveFromClient(user, packet);
       updatePlayerHandItem(player);
       if (IntaveControl.DEBUG_ITEM_USAGE) {
         player.sendMessage(ChatColor.RED + "Manual stop use item packet sent");
