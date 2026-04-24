@@ -181,15 +181,24 @@ public final class FeedbackSender extends Module {
   ) {
     if (!Bukkit.isPrimaryThread()) {
       if (matches(SELF_SYNCHRONIZATION, options)) {
-        Synchronizer.synchronize(() -> tracedSingleSynchronize(player, target, callback, tracker, options, toBundle));
+        Object deferredBundlePacket = cloneBundleForDeferredSynchronization(player, toBundle);
+        Synchronizer.synchronize(() -> tracedSingleSynchronize(player, target, callback, tracker, options, null, deferredBundlePacket));
         return;
       }
     }
+    tracedSingleSynchronize(player, target, callback, tracker, options, toBundle, null);
+  }
+
+  private <T> void tracedSingleSynchronize(
+    Player player, T target, FeedbackCallback<T> callback, FeedbackObserver tracker, int options,
+    @Nullable ProtocolPacketEvent toBundle, @Nullable Object deferredBundlePacket
+  ) {
     ReentrantLock lock = userLock(userOf(player));
     try {
       lock.lock();
       User user = UserRepository.userOf(player);
       if (!user.hasPlayer()) {
+        PacketEventBuffer.releasePacket(deferredBundlePacket);
         return;
       }
       boolean append = false;
@@ -202,14 +211,34 @@ public final class FeedbackSender extends Module {
         append = true;
       }
       if (append) {
+        if (deferredBundlePacket != null) {
+          PacketReplay.sendToClient(user, deferredBundlePacket);
+        }
         appendRequest(player, target, callback, options);
         return;
       }
       countTransactionPacket(player);
       FeedbackRequest<T> request = createRequest(player, target, callback, tracker, options);
-      performRequest(player, request, toBundle);
+      performRequest(player, request, toBundle, deferredBundlePacket);
     } finally {
       lock.unlock();
+    }
+  }
+
+  private Object cloneBundleForDeferredSynchronization(Player player, @Nullable ProtocolPacketEvent toBundle) {
+    if (toBundle == null) {
+      return null;
+    }
+    User user = UserRepository.userOf(player);
+    if (!shouldBundle(user, toBundle)) {
+      return null;
+    }
+    try {
+      Object originalPacket = PacketEventBuffer.clonePacketForReplay(toBundle);
+      toBundle.setCancelled(true);
+      return originalPacket;
+    } catch (RuntimeException exception) {
+      return null;
     }
   }
 
@@ -294,7 +323,17 @@ public final class FeedbackSender extends Module {
   }
 
   private void performRequest(Player receiver, FeedbackRequest<?> request, @Nullable ProtocolPacketEvent toBundle) {
+    performRequest(receiver, request, toBundle, null);
+  }
+
+  private void performRequest(
+    Player receiver,
+    FeedbackRequest<?> request,
+    @Nullable ProtocolPacketEvent toBundle,
+    @Nullable Object deferredBundlePacket
+  ) {
     if (request == null) {
+      PacketEventBuffer.releasePacket(deferredBundlePacket);
       return;
     }
     User user = userOf(receiver);
@@ -309,7 +348,9 @@ public final class FeedbackSender extends Module {
 //      System.out.println("Received " + transactionIdentifier + "/" +transactionResponse.num() + " from " + player.getName());
       System.out.println("Sent " + id + "/"+request.num() + " to " + receiver.getName());
     }
-    if (shouldBundle(user, toBundle)) {
+    if (deferredBundlePacket != null) {
+      sendBundledRequest(receiver, user, packet, deferredBundlePacket);
+    } else if (shouldBundle(user, toBundle)) {
       sendBundledRequest(receiver, user, packet, toBundle);
     } else {
       sendServerPacket(receiver, packet);
@@ -346,6 +387,10 @@ public final class FeedbackSender extends Module {
   private void sendBundledRequest(Player receiver, User user, PacketWrapper<?> feedbackPacket, ProtocolPacketEvent toBundle) {
     Object originalPacket = PacketEventBuffer.clonePacketForReplay(toBundle);
     toBundle.setCancelled(true);
+    sendBundledRequest(receiver, user, feedbackPacket, originalPacket);
+  }
+
+  private void sendBundledRequest(Player receiver, User user, PacketWrapper<?> feedbackPacket, Object originalPacket) {
     PacketTransport.sendToClientIgnoring(
       user,
       true,

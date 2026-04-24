@@ -6,6 +6,7 @@ import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
 import com.github.retrooper.packetevents.netty.buffer.UnpooledByteBufAllocationHelper;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import io.netty.buffer.ByteBuf;
 
 import java.lang.reflect.Constructor;
 import java.util.IdentityHashMap;
@@ -54,6 +55,12 @@ public final class PacketEventBuffer {
   public static Object clonePacketForReplay(ProtocolPacketEvent event) {
     Object reencodedPacket = cloneReencodedWrapper(event);
     return reencodedPacket == null ? cloneFullBuffer(event) : reencodedPacket;
+  }
+
+  public static void releasePacket(Object packet) {
+    if (packet instanceof ByteBuf) {
+      ((ByteBuf) packet).release();
+    }
   }
 
   private static PacketWrapper<?> cloneReencodedWrapper(ProtocolPacketEvent event) {
