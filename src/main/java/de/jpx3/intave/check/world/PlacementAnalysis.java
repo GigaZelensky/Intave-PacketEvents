@@ -63,6 +63,10 @@ public final class PlacementAnalysis extends Check {
 
   private static Boolean legacyConfigLayCache = null;
 
+  public static void invalidateConfigurationLayoutCache() {
+    legacyConfigLayCache = null;
+  }
+
   public static boolean legacyConfigurationLayout() {
     if (legacyConfigLayCache != null) {
       return legacyConfigLayCache;

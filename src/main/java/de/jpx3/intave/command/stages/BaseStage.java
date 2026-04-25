@@ -156,6 +156,24 @@ public final class BaseStage extends CommandStage {
     }
   }
 
+  @SubCommand(
+    selectors = "reload",
+    usage = "",
+    description = "Reload Intave configuration",
+    permission = "intave.command.reload"
+  )
+  public void reloadCommand(CommandSender sender) {
+    sender.sendMessage(IntavePlugin.prefix() + "Reloading configuration...");
+    try {
+      IntavePlugin.singletonInstance().reloadRuntimeConfiguration();
+      sender.sendMessage(IntavePlugin.prefix() + ChatColor.GREEN + "Configuration reloaded");
+    } catch (Exception exception) {
+      IntavePlugin.singletonInstance().logger().error("Failed to reload configuration: " + exception.getMessage());
+      exception.printStackTrace();
+      sender.sendMessage(IntavePlugin.prefix() + ChatColor.RED + "Reload failed, see console for details");
+    }
+  }
+
   private static String describePlayerList(List<String> elements) {
     int size = elements.size();
     String defaultColor = IntavePlugin.defaultColor();

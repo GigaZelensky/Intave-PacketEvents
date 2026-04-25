@@ -10,15 +10,28 @@ import org.bukkit.Bukkit;
 
 public final class InventoryClickAnalysis extends Check {
   public static final double MAX_VL_DECREMENT_PER_SECOND = 1;
-  private final boolean highToleranceMode;
+  private volatile boolean highToleranceMode;
   private final CheckViolationLevelDecrementer decrementer;
 
   public InventoryClickAnalysis(IntavePlugin plugin) {
     super("InventoryClickAnalysis", "inventoryclickanalysis");
     decrementer = new CheckViolationLevelDecrementer(this, MAX_VL_DECREMENT_PER_SECOND);
-    this.highToleranceMode = configuration().settings().boolBy("high-tolerance", true);
+    reloadRuntimeSettings();
     this.startDecrementTask();
     this.setupCheckParts();
+  }
+
+  private void reloadRuntimeSettings() {
+    this.highToleranceMode = configuration().settings().boolBy("high-tolerance", true);
+  }
+
+  @Override
+  protected void onConfigurationReload() {
+    reloadRuntimeSettings();
+  }
+
+  public boolean highToleranceMode() {
+    return highToleranceMode;
   }
 
   private void startDecrementTask() {
@@ -32,7 +45,7 @@ public final class InventoryClickAnalysis extends Check {
   private void setupCheckParts() {
     appendCheckPart(new OnMoveCheck(this));
     appendCheckPart(new NotOpenCheck(this));
-    appendCheckPart(new DelayAnalyzer(this, highToleranceMode));
+    appendCheckPart(new DelayAnalyzer(this));
     appendCheckPart(new RegrDelayAnalyzer(this));
     appendCheckPart(new PacketDelayAnalyzer(this));
     appendCheckPart(new AutoTotem(this));

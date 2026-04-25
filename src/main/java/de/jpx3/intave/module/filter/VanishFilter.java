@@ -25,11 +25,17 @@ import java.util.stream.Collectors;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 
 public final class VanishFilter extends Filter {
-  private final boolean disabled;
+  private volatile boolean disabled;
 
   public VanishFilter(IntavePlugin plugin) {
     super("vanish");
-    disabled = plugin.settings().getBoolean("command.fix-tab-kicks", false);
+    reloadConfiguration();
+  }
+
+  @Override
+  public void reloadConfiguration() {
+    super.reloadConfiguration();
+    disabled = IntavePlugin.singletonInstance().settings().getBoolean("command.fix-tab-kicks", false);
   }
 
   @PacketSubscription(

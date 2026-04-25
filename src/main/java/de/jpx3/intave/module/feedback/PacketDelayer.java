@@ -35,12 +35,16 @@ import static de.jpx3.intave.access.player.trust.TrustFactor.RED;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 
 public final class PacketDelayer extends Module {
-  private boolean reverseBlink;
-  private boolean reverseLag;
-  private boolean lowTolerance;
+  private volatile boolean reverseBlink;
+  private volatile boolean reverseLag;
+  private volatile boolean lowTolerance;
 
   @Override
   public void enable() {
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     Timer timerCheck = plugin.checks().searchCheck(Timer.class);
     this.reverseBlink = timerCheck.reverseBlink();
     this.reverseLag = timerCheck.reverseLag();

@@ -32,6 +32,11 @@ public final class ExpiringPermissionCache implements PermissionCache {
       .setAccess(access);
   }
 
+  @Override
+  public void clear() {
+    permissionEntries.clear();
+  }
+
   public static ExpiringPermissionCache withDefaultExpirationTime() {
     return expiringAfter(4, TimeUnit.SECONDS);
   }

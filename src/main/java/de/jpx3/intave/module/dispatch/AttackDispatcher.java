@@ -44,11 +44,15 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Server.SET_SLOT;
 import static org.bukkit.event.entity.EntityDamageEvent.DamageModifier.BLOCKING;
 
 public final class AttackDispatcher extends Module {
-  public static boolean REDUCING_DISABLED;
-  public static boolean COMBAT_SAMPLING = true;
+  public static volatile boolean REDUCING_DISABLED;
+  public static volatile boolean COMBAT_SAMPLING = true;
 
   @Override
   public void enable() {
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     REDUCING_DISABLED = !MinecraftVersions.VER1_9_0.atOrAbove() &&
       plugin.checks().searchCheck(Heuristics.class).configuration().settings().boolBy("disable-reducing", false);
     COMBAT_SAMPLING = plugin.checks().searchCheck(Heuristics.class).configuration().settings().boolBy("combat-sampling", true);

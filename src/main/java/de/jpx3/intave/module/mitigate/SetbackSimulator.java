@@ -43,15 +43,19 @@ import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.NETHER_P
 import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.UNKNOWN;
 
 public final class SetbackSimulator extends Module {
-  private Physics physicsCheck;
+  private volatile Physics physicsCheck;
   private InternalTeleportApplier teleportMethodContainer;
-  private boolean closeInventoryOnDetection;
+  private volatile boolean closeInventoryOnDetection;
 
   @Override
   public void enable() {
+    reloadConfiguration();
+    this.teleportMethodContainer = new InternalTeleportApplier();
+  }
+
+  public void reloadConfiguration() {
     this.physicsCheck = plugin.checks().searchCheck(Physics.class);
     this.closeInventoryOnDetection = physicsCheck.closeInventoryOnDetection();
-    this.teleportMethodContainer = new InternalTeleportApplier();
   }
 
   private static final Set<TeleportCause> BANNED_TELEPORT_CAUSES = new HashSet<>(

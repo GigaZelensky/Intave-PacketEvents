@@ -236,6 +236,10 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
     }
   }
 
+  public static void invalidateConfigurationLayoutCache() {
+    legacyConfigLayCache = null;
+  }
+
   public static boolean legacyConfigurationLayout() {
     if (legacyConfigLayCache != null) {
       return legacyConfigLayCache;

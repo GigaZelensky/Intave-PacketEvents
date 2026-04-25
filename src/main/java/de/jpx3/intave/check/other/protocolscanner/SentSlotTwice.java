@@ -14,11 +14,16 @@ import org.bukkit.entity.Player;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.HELD_ITEM_SLOT_IN;
 
 public final class SentSlotTwice extends MetaCheckPart<ProtocolScanner, SentSlotTwice.SentSlotTwiceMeta> {
-  private final int vl;
+  private volatile int vl;
 
   public SentSlotTwice(ProtocolScanner parentCheck) {
     super(parentCheck, SentSlotTwiceMeta.class);
-    this.vl = parentCheck.configuration().settings().intBy("sst-vl", parentCheck.configuration().settings().intBy("check_sent_slot_twice_vl", 100));
+    reloadConfiguration();
+  }
+
+  @Override
+  public void reloadConfiguration() {
+    this.vl = parentCheck().configuration().settings().intBy("sst-vl", parentCheck().configuration().settings().intBy("check_sent_slot_twice_vl", 100));
   }
 
   @PacketSubscription(

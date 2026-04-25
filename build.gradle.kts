@@ -81,6 +81,7 @@ bukkit {
     register("intave.command.combatmodifiers") { default = OP }
     register("intave.command.cps") { default = OP }
     register("intave.command.cloud") { default = OP }
+    register("intave.command.reload") { default = OP }
     register("intave.command.proxy") { default = FALSE }
     register("intave.command.noupdate") { default = FALSE }
     register("intave.command.diagnostics") {
