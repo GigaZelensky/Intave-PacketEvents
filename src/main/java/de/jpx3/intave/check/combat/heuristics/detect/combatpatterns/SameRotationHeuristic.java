@@ -111,7 +111,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     if (yawExactNumber && !lastYawMotionExactNumber) {
       meta.violationLevel += transformViolation(30);
       String description = "exact yaw rotation:" + meta.lastTick.yaw;
-      Anomaly anomaly = anomalyOf("183", description, meta);
+      Anomaly anomaly = anomalyOf("yaw:exact(0)", description, meta);
       parentCheck().saveAnomaly(player, anomaly);
     }
   }
@@ -126,7 +126,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     if (pitchExactNumber && Math.abs(meta.lastTick.pitch) != 90 && !lastPitchMotionExactNumber) {
       meta.violationLevel += transformViolation(30);
       String description = "exact pitch rotation:" + meta.lastTick.pitch;
-      Anomaly anomaly = anomalyOf("183", description, meta);
+      Anomaly anomaly = anomalyOf("pitch:exact(0)", description, meta);
       parentCheck().saveAnomaly(player, anomaly);
     }
   }
@@ -138,7 +138,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     if (containedYaw) {
       meta.violationLevel += transformViolation(60);
       String description = "same rotation (Yaw:" + meta.lastTick.yaw + ", YawMotion:" + MathHelper.formatDouble(meta.lastTick.yawMotion, 2) + ")";
-      Anomaly anomaly = anomalyOf("181", description, meta);
+      Anomaly anomaly = anomalyOf("yaw:exact(1)", description, meta);
       parentCheck().saveAnomaly(player, anomaly);
     }
   }
@@ -165,7 +165,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     if (yawMotionExactNumber) {
       meta.violationLevel += transformViolation(30);
       String description = "exact yaw motion:" + meta.lastTick.yawMotion;
-      Anomaly anomaly = anomalyOf("182", description, meta);
+      Anomaly anomaly = anomalyOf("yaw:exact(2)", description, meta);
       parentCheck().saveAnomaly(player, anomaly);
     }
   }
@@ -177,7 +177,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     if (pitchMotionExactNumber) {
       meta.violationLevel += transformViolation(20);
       String description = "exact pitch motion:" + meta.lastTick.pitchMotion;
-      Anomaly anomaly = anomalyOf("182", description, meta);
+      Anomaly anomaly = anomalyOf("pitch:exact(1)", description, meta);
       parentCheck().saveAnomaly(player, anomaly);
     }
   }

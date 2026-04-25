@@ -52,13 +52,14 @@ public final class PacketOrderHeuristic extends MetaCheckPart<Heuristics, Packet
       if (meta.movementSentThisTick && !meta.betweenTransactionAndFlying.isEmpty() && protocol.flyingPacketsAreSent()) {
         int options = DELAY_128s | LIMIT_2;
         String description = "invalid packet order (" + meta.betweenTransactionAndFlying.stream().map(PacketTypeCommon::getName).map(s -> s.replace("_", " ")).collect(Collectors.joining(", ")) + ")";
-        Anomaly anomaly = Anomaly.anomalyOf("14", Confidence.NONE, Anomaly.Type.KILLAURA, description, options);
+        String checkName = "packet:ord";
+        Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.NONE, Anomaly.Type.KILLAURA, description, options);
         parentCheck().saveAnomaly(player, anomaly);
-        user.nerf(AttackNerfStrategy.BLOCKING, "31");
-        user.nerf(AttackNerfStrategy.CRITICALS, "31");
+        user.nerf(AttackNerfStrategy.BLOCKING, checkName);
+        user.nerf(AttackNerfStrategy.CRITICALS, checkName);
         if (meta.internalVl++ >= 30) {
-          user.nerf(AttackNerfStrategy.DMG_ARMOR_INEFFECTIVE, "31");
-          user.nerf(AttackNerfStrategy.BURN_LONGER, "31");
+          user.nerf(AttackNerfStrategy.DMG_ARMOR_INEFFECTIVE, checkName);
+          user.nerf(AttackNerfStrategy.BURN_LONGER, checkName);
           meta.internalVl = 0;
         }
       }

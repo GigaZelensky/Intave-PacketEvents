@@ -13,7 +13,6 @@ import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.util.Vector;
@@ -27,6 +26,7 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
 import static de.jpx3.intave.module.violation.Violation.ViolationFlags.DISPLAY_IN_ALL_VERBOSE_MODES;
 
 public final class RotationSpeed extends MetaCheckPart<PlacementAnalysis, RotationSpeed.RotationSpeedMeta> {
+  private static final int BLOCK_SAMPLES = 8;
   private volatile int rotationLimit;
 
   public RotationSpeed(PlacementAnalysis parentCheck) {
@@ -73,7 +73,10 @@ public final class RotationSpeed extends MetaCheckPart<PlacementAnalysis, Rotati
       return;
     }
 
-    if (place.getBlock().getY() < player.getLocation().getBlockY() /*&& belowPlaced.getType() == Material.AIR*/ && blockAgainstWasPlaced(user, place.getBlockAgainst())) {
+    boolean placedBelow = place.getBlock().getY() < player.getLocation().getBlockY();
+    boolean enoughBlockSamples = meta.lastBlocksPlaced.size() >= BLOCK_SAMPLES;
+
+    if (placedBelow && enoughBlockSamples && isBridgeCreation(meta.lastBlocksPlaced)) {
       List<Float> rotationHistory = meta.rotationHistory;
       double rotationSum = 0.0;
       for (Float value : rotationHistory) {
@@ -108,10 +111,32 @@ public final class RotationSpeed extends MetaCheckPart<PlacementAnalysis, Rotati
     if (place.isCancelled()) {
       return;
     }
-    if (meta.lastBlocksPlaced.size() > 4) {
+    if (meta.lastBlocksPlaced.size() >= BLOCK_SAMPLES) {
       meta.lastBlocksPlaced.remove(0);
     }
     meta.lastBlocksPlaced.add(place.getBlock().getLocation().toVector());
+  }
+
+  private boolean isBridgeCreation(List<Vector> blocks) {
+    int placedAgainstCount = 0;
+    int placedHorizontallyCount = 0;
+
+    for (int i = 0; i < blocks.size() - 1; i++) {
+      Vector current = blocks.get(i);
+      Vector next = blocks.get(i + 1);
+      boolean placedAgainst = current.distanceSquared(next) <= 1;
+      boolean placedHorizontally = current.getBlockY() == next.getBlockY();
+
+      if (placedAgainst) {
+        placedAgainstCount++;
+      }
+      if (placedHorizontally) {
+        placedHorizontallyCount++;
+      }
+    }
+    double placedAgainstPct = (double) placedAgainstCount / blocks.size();
+    double placedHorizontallyPct = (double) placedHorizontallyCount / blocks.size();
+    return placedAgainstPct > 0.3 && placedHorizontallyPct > 0.3;
   }
 
   private boolean isOneLine(List<? extends Vector> blocks) {
@@ -130,17 +155,6 @@ public final class RotationSpeed extends MetaCheckPart<PlacementAnalysis, Rotati
       first = false;
     }
     return lockedOnX || lockedOnZ;
-  }
-
-  private boolean blockAgainstWasPlaced(User user, Block blockAgainst) {
-    Vector vector = blockAgainst.getLocation().toVector();
-    List<Vector> lastBlocksPlaced = metaOf(user).lastBlocksPlaced;
-    for (Vector location : lastBlocksPlaced) {
-      if (location.distance(vector) == 0) {
-        return true;
-      }
-    }
-    return false;
   }
 
   public static class RotationSpeedMeta extends CheckCustomMetadata {

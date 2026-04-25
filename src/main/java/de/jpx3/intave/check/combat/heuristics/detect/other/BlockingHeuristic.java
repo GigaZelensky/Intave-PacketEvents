@@ -87,10 +87,11 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
         if (ticksBetweenBlockAndUnblock == 0) {
           String description = "unblocked too quickly (" + ticksBetweenBlockAndUnblock + ")";
           int options = DELAY_128s | LIMIT_2 | SUGGEST_MINING;
-          Anomaly anomaly = Anomaly.anomalyOf("143", Confidence.MAYBE, Anomaly.Type.KILLAURA, description, options);
+          String checkName = "block:speed";
+          Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.MAYBE, Anomaly.Type.KILLAURA, description, options);
           parentCheck().saveAnomaly(player, anomaly);
           //dmc6
-          user.nerf(AttackNerfStrategy.BLOCKING, "6");
+          user.nerf(AttackNerfStrategy.BLOCKING, checkName);
           punishmentData.timeLastBlockCancel = System.currentTimeMillis();
           Synchronizer.synchronize(() -> DataWatcherAccess.setBlockingFlag(player, false));
         }
@@ -105,10 +106,11 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
 
       if (meta.releasedItemAfterClientTick) {
         String description = "sent multiple blocking interactions per tick (" + (itemInHand == null ? "null" : itemInHand.getType()) + ")";
-        Anomaly anomaly = Anomaly.anomalyOf("141", Confidence.NONE, Anomaly.Type.KILLAURA, description);
+        String checkName = "block:multiple";
+        Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.NONE, Anomaly.Type.KILLAURA, description);
         parentCheck().saveAnomaly(player, anomaly);
         //dmc7
-        user.nerf(AttackNerfStrategy.BLOCKING, "7");
+        user.nerf(AttackNerfStrategy.BLOCKING, checkName);
       }
 
       int clientTicksBetweenBlockingToggle = meta.clientTicksBetweenBlockingToggle;
@@ -121,10 +123,11 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
           meta.acaBlockingVL++;
           if (meta.acaBlockingVL > 2) {
             String description = "sent too few packets between block-toggle packets (vl: " + meta.acaBlockingVL + ")";
-            Anomaly anomaly = Anomaly.anomalyOf("142", Confidence.NONE, Anomaly.Type.KILLAURA, description);
+            String checkName = "block:packets";
+            Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.NONE, Anomaly.Type.KILLAURA, description);
             parentCheck().saveAnomaly(player, anomaly);
             //dmc8
-            user.nerf(AttackNerfStrategy.BLOCKING, "8");
+            user.nerf(AttackNerfStrategy.BLOCKING, checkName);
           }
         } else if (meta.acaBlockingVL > 1) {
           meta.acaBlockingVL -= 2;
@@ -158,7 +161,7 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
         if (meta.blocksPlacedThisTick == 0 || meta.heldItemOperations > 2) {
           String description = "sent too many item operations (operations: " + meta.heldItemOperations + ")";
           description += " (version " + user.meta().protocol().versionString() + ")";
-          Anomaly anomaly = Anomaly.anomalyOf("144", Confidence.NONE, Anomaly.Type.KILLAURA, description, 0);
+          Anomaly anomaly = Anomaly.anomalyOf("block:ops", Confidence.NONE, Anomaly.Type.KILLAURA, description, 0);
           parentCheck().saveAnomaly(player, anomaly);
 //          if(meta.unsendPackets.size() != meta.heldItemOperations) {
 //            Bukkit.broadcastMessage("flag " + meta.heldItemOperations + " " + meta.blocksPlacedThisTick);

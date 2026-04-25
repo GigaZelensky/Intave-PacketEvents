@@ -64,13 +64,13 @@ public final class RotationUnlikelyAccuracyHeuristic extends MetaCheckPart<Heuri
 //        String descriptor = "rotated suspiciously (" + MathHelper.formatDouble(maxRatio, 4) + " / " + MathHelper.formatDouble(maxDistanceToPerfectYaw, 4) + ")";
         String descriptor = SibylCensor.thisPlease("rotated suspiciously (%s / %s)", MathHelper.formatDouble(maxRatio, 4), MathHelper.formatDouble(maxDistanceToPerfectYaw, 4));
         int options = Anomaly.AnomalyOption.LIMIT_8 | Anomaly.AnomalyOption.SUGGEST_MINING;
-        Anomaly anomaly = Anomaly.anomalyOf("91", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
+        Anomaly anomaly = Anomaly.anomalyOf("yaw:acc(long)", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
         parentCheck().saveAnomaly(player, anomaly);
       }
       if (yawAverage >= 3.5 && maxDistanceToPerfectYaw <= 12.5 && averageRatio > 1) {
         String descriptor = "precise rotation yaw (" + MathHelper.formatDouble(yawAverage, 4) + ")";
         int options = Anomaly.AnomalyOption.LIMIT_4 | Anomaly.AnomalyOption.SUGGEST_MINING;
-        Anomaly anomaly = Anomaly.anomalyOf("92", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
+        Anomaly anomaly = Anomaly.anomalyOf("yaw:acc(precise)", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
         parentCheck().saveAnomaly(player, anomaly);
       }
       heuristicMeta.distancesToPerfectYaw.clear();

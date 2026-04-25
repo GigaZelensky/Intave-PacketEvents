@@ -82,7 +82,7 @@ public class ToolSwitchHeuristic extends MetaCheckPart<Heuristics, ToolSwitchHeu
         parentCheck().saveAnomaly(
             player,
             Anomaly.anomalyOf(
-                "205",
+                "attack:toolswitch",
                 Confidence.LIKELY,
                 Anomaly.Type.KILLAURA,
                 "sent suspicious slot packets while breaking blocks (" + meta.ticksSinceLastStop + " ticks)"
@@ -91,7 +91,7 @@ public class ToolSwitchHeuristic extends MetaCheckPart<Heuristics, ToolSwitchHeu
 
         // Apply damage cancel if this happens too often
         if (++meta.cancelVl > 1) {
-          user.nerf(AttackNerfStrategy.DMG_LIGHT, "205");
+          user.nerf(AttackNerfStrategy.DMG_LIGHT, "attack:toolswitch");
         }
 
         meta.vl = 0;

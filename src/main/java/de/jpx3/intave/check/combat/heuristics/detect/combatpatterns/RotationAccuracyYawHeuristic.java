@@ -63,11 +63,12 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
       if (heuristicMeta.snapVL++ > 0) {
         String description = "suspicious rotation snap (" + yawSpeed + ")";
         int options = LIMIT_4 | SUGGEST_MINING;
-        Anomaly anomaly = Anomaly.anomalyOf("86", Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
+        String checkName = resolveCheckName(0);
+        Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
         parentCheck().saveAnomaly(player, anomaly);
         //dmc16
 //        user.applyAttackNerfer(AttackNerfStrategy.HT_MEDIUM, "16");
-        user.nerf(AttackNerfStrategy.CRITICALS, "16");
+        user.nerf(AttackNerfStrategy.CRITICALS, checkName);
       }
     } else if (heuristicMeta.snapVL > 0) {
       heuristicMeta.snapVL -= 0.1;
@@ -83,21 +84,23 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
           if (heuristicMeta.followBalance > 25) {
             String description = "follows entity movement too precisely";
             int options = LIMIT_2 | LIMIT_1 | SUGGEST_MINING | DELAY_64s;
-            Anomaly anomaly = Anomaly.anomalyOf("81", Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
+            String checkName = resolveCheckName(1);
+            Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
             parentCheck().saveAnomaly(player, anomaly);
             heuristicMeta.followBalance -= 7;
 //            plugin.eventService().attackCancelService().requestDamageCancel(user, AttackCancelType.LIGHT);
-            user.nerf(AttackNerfStrategy.CRITICALS, "81");
+            user.nerf(AttackNerfStrategy.CRITICALS, checkName);
           }
         }
         // Check perfect yaw
         if (distanceToPerfectYaw == 0 || distanceToClosestPerfectYaw == 0) {
           String description = "rotated yaw too precise (0.0)";
           int options = LIMIT_2 | DELAY_128s | SUGGEST_MINING;
-          Anomaly anomaly = Anomaly.anomalyOf("82", Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
+          String checkName = resolveCheckName(2);
+          Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
           parentCheck().saveAnomaly(player, anomaly);
           //dmc17
-          user.nerf(AttackNerfStrategy.CRITICALS, "17");
+          user.nerf(AttackNerfStrategy.CRITICALS, checkName);
         }
         // Check yaw accuracy
         if (yawSpeed > 3.0) {
@@ -109,11 +112,12 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
             if (heuristicMeta.rotationAccuracyVL++ > 3) {
               String description = "high accuracy rotation yaw vl:" + suspiciousLevel;
               int options = LIMIT_2 | DELAY_32s | SUGGEST_MINING;
-              Anomaly anomaly = Anomaly.anomalyOf("83", Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
+              String checkName = resolveCheckName(3);
+              Anomaly anomaly = Anomaly.anomalyOf(checkName, Confidence.PROBABLE, Anomaly.Type.KILLAURA, description, options);
               parentCheck().saveAnomaly(player, anomaly);
               //dmc18
 //              user.applyAttackNerfer(AttackNerfStrategy.HT_MEDIUM, "18");
-              user.nerf(AttackNerfStrategy.CRITICALS, "18");
+              user.nerf(AttackNerfStrategy.CRITICALS, checkName);
             }
           } else if (heuristicMeta.rotationAccuracyVL > 0) {
             heuristicMeta.rotationAccuracyVL -= 0.005;
@@ -125,7 +129,7 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
         } else if (heuristicMeta.balanceYawAccuracyOther++ > 50) {
           String description = "keeps high yaw accuracy in " + (int) heuristicMeta.balanceYawAccuracyOther + " rotations";
           int options = LIMIT_2 | DELAY_32s | SUGGEST_MINING;
-          Anomaly anomaly = Anomaly.anomalyOf("84", Confidence.MAYBE, Anomaly.Type.KILLAURA, description, options);
+          Anomaly anomaly = Anomaly.anomalyOf(resolveCheckName(4), Confidence.MAYBE, Anomaly.Type.KILLAURA, description, options);
           parentCheck().saveAnomaly(player, anomaly);
           heuristicMeta.balanceYawAccuracyOther = 0;
           //dmc19
@@ -150,15 +154,20 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
         long lastDetection = System.currentTimeMillis() - heuristicMeta.lastHARYAnomaly;
         int options = SUGGEST_MINING | DELAY_16s | LIMIT_2;
         Confidence confidence = /*lastDetection < 2000 ? Confidence.LIKELY :*/ Confidence.LIKELY;
-        Anomaly anomaly = Anomaly.anomalyOf("85", confidence, Anomaly.Type.KILLAURA, "high accuracy rotation yaw on hit-box corners", options);
+        String checkName = resolveCheckName(5);
+        Anomaly anomaly = Anomaly.anomalyOf(checkName, confidence, Anomaly.Type.KILLAURA, "high accuracy rotation yaw on hit-box corners", options);
         parentCheck().saveAnomaly(player, anomaly);
         heuristicMeta.bitBoxCornerBalance -= 20;
         heuristicMeta.lastHARYAnomaly = System.currentTimeMillis();
-        user.nerf(DMG_LIGHT, "85");
+        user.nerf(DMG_LIGHT, checkName);
       }
     }
     heuristicMeta.lastBodyDirection = direction;
     heuristicMeta.prevDistanceToPerfectYaw = distanceToPerfectYaw;
+  }
+
+  private String resolveCheckName(int id) {
+    return "yaw:acc(" + id + ")";
   }
 
   public static final class RotationAccuracyHeuristicMeta extends CheckCustomMetadata {

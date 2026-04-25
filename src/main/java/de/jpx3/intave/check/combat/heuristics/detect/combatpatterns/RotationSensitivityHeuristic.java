@@ -13,7 +13,9 @@ import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
 import org.bukkit.entity.Player;
 
-import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.*;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.DELAY_16s;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.LIMIT_2;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.SUGGEST_MINING;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.LOOK;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
 
@@ -48,35 +50,29 @@ public final class RotationSensitivityHeuristic extends MetaCheckPart<Heuristics
       return;
     }
 
-    // old liquidbounce gcd patch
-    // detects a few clients
-    if (pitchDifference > 0 && yawDifference > 0 && user.meta().attack().recentlyAttacked(16000)) {
+    if (pitchDifference > 0 && yawDifference > 0 && attackData.recentlyAttacked(16000)) {
       int yawDecimal = decimalPlacesOf(rotationYaw);
       int pitchDecimal = decimalPlacesOf(rotationPitch);
 
       if (yawDecimal <= 3 && pitchDecimal <= 2) {
         heuristicMeta.decimalVL += 4;
-        // vl+
         if (heuristicMeta.decimalVL > 80) {
           heuristicMeta.decimalVL = 0;
           parentCheck().saveAnomaly(
             player,
             Anomaly.anomalyOf(
-              "111",
+              "rotation:decimal",
               Confidence.MAYBE,
               Anomaly.Type.KILLAURA,
               "rotations have too few decimals",
               LIMIT_2 | DELAY_16s | SUGGEST_MINING
             )
           );
-          //dmc21
-//          user.applyAttackNerfer(AttackNerfStrategy.HT_MEDIUM, "21");
         }
       } else if (heuristicMeta.decimalVL > 0) {
         heuristicMeta.decimalVL--;
       }
 
-      // Another check
       yawDecimal = decimalPlacesOf(yawDifference);
       pitchDecimal = decimalPlacesOf(pitchDifference);
 
@@ -86,7 +82,7 @@ public final class RotationSensitivityHeuristic extends MetaCheckPart<Heuristics
         if (heuristicMeta.decimalSpeedVL++ > 200) {
           double violationLevel = heuristicMeta.decimalSpeedVL / 200.0;
           Anomaly anomaly = Anomaly.anomalyOf(
-            "113",
+            "rotation:delta-decimal",
             Confidence.NONE,
             Anomaly.Type.KILLAURA,
             "rotations have too few decimals, vl:" + violationLevel,
@@ -139,7 +135,7 @@ public final class RotationSensitivityHeuristic extends MetaCheckPart<Heuristics
         parentCheck().saveAnomaly(
           player,
           Anomaly.anomalyOf(
-            "112",
+            "pitch:sens",
             heuristicMeta.sensitivityVL >= 400 ? Confidence.PROBABLE : Confidence.NONE,
             Anomaly.Type.KILLAURA,
             "rotations are out of sync (gcd vl:" + heuristicMeta.sensitivityVL + ")",
