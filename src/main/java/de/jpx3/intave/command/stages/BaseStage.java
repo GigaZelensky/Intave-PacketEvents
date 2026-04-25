@@ -254,6 +254,7 @@ public final class BaseStage extends CommandStage {
 
   @SubCommand(
     selectors = {"alert", "alerts"},
+    hideInHelp = true,
     description = "Redirect to verbose notification output"
   )
   public void redirectToVerbose(CommandSender sender) {
