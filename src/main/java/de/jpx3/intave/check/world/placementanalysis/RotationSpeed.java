@@ -27,11 +27,16 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
 import static de.jpx3.intave.module.violation.Violation.ViolationFlags.DISPLAY_IN_ALL_VERBOSE_MODES;
 
 public final class RotationSpeed extends MetaCheckPart<PlacementAnalysis, RotationSpeed.RotationSpeedMeta> {
-  private final int rotationLimit;
+  private volatile int rotationLimit;
 
   public RotationSpeed(PlacementAnalysis parentCheck) {
     super(parentCheck, RotationSpeedMeta.class);
-    rotationLimit = (int) parentCheck.configuration().settings().doubleBy("rotation-limit", 3000);
+    reloadConfiguration();
+  }
+
+  @Override
+  public void reloadConfiguration() {
+    rotationLimit = (int) parentCheck().configuration().settings().doubleBy("rotation-limit", 3000);
   }
 
   @PacketSubscription(

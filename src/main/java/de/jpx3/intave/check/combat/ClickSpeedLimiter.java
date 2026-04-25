@@ -24,12 +24,21 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 public final class ClickSpeedLimiter extends MetaCheck<ClickSpeedLimiter.ClickSpeedLimiterMeta> {
   private final IntavePlugin plugin;
-  private final int maxCPS;
+  private volatile int maxCPS;
 
   public ClickSpeedLimiter(IntavePlugin plugin) {
     super("ClickSpeedLimiter", "clickspeedlimiter", ClickSpeedLimiterMeta.class);
     this.plugin = plugin;
+    reloadRuntimeSettings();
+  }
+
+  private void reloadRuntimeSettings() {
     this.maxCPS = configuration().settings().intInBoundsBy("max-cps", 8, 40, 20);
+  }
+
+  @Override
+  protected void onConfigurationReload() {
+    reloadRuntimeSettings();
   }
 
   @PacketSubscription(

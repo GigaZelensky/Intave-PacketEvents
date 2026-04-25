@@ -11,41 +11,50 @@ import de.jpx3.intave.check.movement.timer.PlayerTime;
 public final class Timer extends Check {
   private final CheckViolationLevelDecrementer decrementer;
 
-  private final boolean highToleranceMode;
-  private final boolean reverseBlink;
-  private final boolean reverseLag;
-  private final boolean lowTolerance;
-  private int blinkLimit;
-  private final int timerTolerance;
-  private final boolean detectPulseBlink;
+  private volatile boolean highToleranceMode;
+  private volatile boolean reverseBlink;
+  private volatile boolean reverseLag;
+  private volatile boolean lowTolerance;
+  private volatile int blinkLimit;
+  private volatile int timerTolerance;
+  private volatile boolean detectPulseBlink;
   private final PlayerTime playerTime;
   private final MicroBlink microBlink;
 
   public Timer() {
     super("Timer", "timer");
     this.decrementer = new CheckViolationLevelDecrementer(this, 0.2);
-    CheckSettings settings = configuration().settings();
-
-    reverseBlink = settings.boolBy("reverse-blink", true);
-
-    // deprecated
-    highToleranceMode = settings.boolBy("high-tolerance", false);
-    lowTolerance = settings.boolBy("low-tolerance", false);
-    // reverse lag just sucks
-    reverseLag = settings.boolBy("reverse-lag", false);
-
-    blinkLimit = settings.intBy("blink-limit", (lowTolerance ? 100 : -1));
-    if (blinkLimit < 60 && blinkLimit >= 0) {
-      blinkLimit = 60;
-    }
-    timerTolerance = settings.intBy("tolerance", 1);
-    detectPulseBlink = settings.boolBy("block-pulse-blink", lowTolerance);
+    reloadRuntimeSettings();
 
     this.playerTime = new PlayerTime(this);
     appendCheckPart(playerTime);
 
     this.microBlink = new MicroBlink(this);
     appendCheckPart(microBlink);
+  }
+
+  private void reloadRuntimeSettings() {
+    CheckSettings settings = configuration().settings();
+
+    this.reverseBlink = settings.boolBy("reverse-blink", true);
+
+    // deprecated
+    this.highToleranceMode = settings.boolBy("high-tolerance", false);
+    this.lowTolerance = settings.boolBy("low-tolerance", false);
+    // reverse lag just sucks
+    this.reverseLag = settings.boolBy("reverse-lag", false);
+
+    blinkLimit = settings.intBy("blink-limit", (lowTolerance ? 100 : -1));
+    if (blinkLimit < 60 && blinkLimit >= 0) {
+      blinkLimit = 60;
+    }
+    this.timerTolerance = settings.intBy("tolerance", 1);
+    this.detectPulseBlink = settings.boolBy("block-pulse-blink", lowTolerance);
+  }
+
+  @Override
+  protected void onConfigurationReload() {
+    reloadRuntimeSettings();
   }
 
   public void receiveMovement(ProtocolPacketEvent event) {

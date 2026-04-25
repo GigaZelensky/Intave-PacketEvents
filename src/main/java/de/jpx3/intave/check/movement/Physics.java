@@ -83,22 +83,30 @@ public final class Physics extends Check {
 
   private final IntavePlugin plugin;
   private final CheckViolationLevelDecrementer decrementer;
-  private final SimulationProcessor simulationProcessor;
+  private volatile SimulationProcessor simulationProcessor;
   private final SimulationEvaluator simulationEvaluator;
   private final FallDamageApplier fallDamageApplier;
-  private final boolean useSuperpositions;
-  private final boolean detectNoSlowdown;
-  private final boolean highToleranceMode;
-  private final boolean resetItemUsage;
-  private final boolean closeInventory;
-  private final boolean closeInventorySilentMode;
-  private final boolean refreshNearbyBlocks;
+  private volatile boolean useSuperpositions;
+  private volatile boolean detectNoSlowdown;
+  private volatile boolean highToleranceMode;
+  private volatile boolean resetItemUsage;
+  private volatile boolean closeInventory;
+  private volatile boolean closeInventorySilentMode;
+  private volatile boolean refreshNearbyBlocks;
 
   public Physics(IntavePlugin plugin) {
     super("Physics", "physics");
     this.plugin = plugin;
     this.decrementer = new CheckViolationLevelDecrementer(this, VL_DECREMENT_PER_VALID_MOVE * 20);
+    reloadRuntimeSettings();
 
+    this.simulationEvaluator = new SimulationEvaluator();
+    setDefaultMitigationStrategy(MitigationStrategy.CAREFUL);
+    this.fallDamageApplier = new FallDamageApplier();
+    linkCheckToPoseSimulators();
+  }
+
+  private void reloadRuntimeSettings() {
     CheckSettings settings = configuration().settings();
     this.highToleranceMode = settings.boolBy("high-tolerance", false);
     if (settings.has("on-detection")) {
@@ -130,10 +138,11 @@ public final class Physics extends Check {
     Physics.USE_SUPERPOSITIONS = useSuperpositions;
 
     this.simulationProcessor = new PredictiveSimulationProcessor(resetItemUsage, useSuperpositions, detectNoSlowdown);
-    this.simulationEvaluator = new SimulationEvaluator();
-    setDefaultMitigationStrategy(MitigationStrategy.CAREFUL);
-    this.fallDamageApplier = new FallDamageApplier();
-    linkCheckToPoseSimulators();
+  }
+
+  @Override
+  protected void onConfigurationReload() {
+    reloadRuntimeSettings();
   }
 
   private void linkCheckToPoseSimulators() {

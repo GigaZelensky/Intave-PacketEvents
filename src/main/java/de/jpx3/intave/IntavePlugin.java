@@ -21,6 +21,8 @@ import de.jpx3.intave.block.type.BlockTypeAccess;
 import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.block.variant.BlockVariantRegister;
 import de.jpx3.intave.check.CheckService;
+import de.jpx3.intave.check.combat.Heuristics;
+import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.cleanup.GarbageCollector;
 import de.jpx3.intave.cleanup.ShutdownTasks;
 import de.jpx3.intave.cleanup.StartupTasks;
@@ -44,9 +46,17 @@ import de.jpx3.intave.math.SinusCache;
 import de.jpx3.intave.metric.ServerHealth;
 import de.jpx3.intave.module.BootSegment;
 import de.jpx3.intave.module.Modules;
+import de.jpx3.intave.module.dispatch.AttackDispatcher;
+import de.jpx3.intave.module.dispatch.MovementDispatcher;
+import de.jpx3.intave.module.feedback.FeedbackSender;
+import de.jpx3.intave.module.feedback.PacketDelayer;
+import de.jpx3.intave.module.filter.Filters;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscriptionLinker;
+import de.jpx3.intave.module.mitigate.ReconDelayLimiter;
+import de.jpx3.intave.module.mitigate.SetbackSimulator;
 import de.jpx3.intave.module.nayoro.Inventory;
 import de.jpx3.intave.module.tracker.entity.Entity;
+import de.jpx3.intave.module.violation.ViolationProcessor;
 import de.jpx3.intave.player.FaultKicks;
 import de.jpx3.intave.player.ItemProperties;
 import de.jpx3.intave.player.fake.IdentifierReserve;
@@ -60,6 +70,7 @@ import de.jpx3.intave.share.link.WrapperConverter;
 import de.jpx3.intave.test.TestService;
 import de.jpx3.intave.trustfactor.TrustFactorService;
 import de.jpx3.intave.user.UserRepository;
+import de.jpx3.intave.user.permission.PermissionCache;
 import de.jpx3.intave.user.storage.LongTermViolationStorage;
 import de.jpx3.intave.version.DurationTranslator;
 import de.jpx3.intave.version.IntaveVersion;
@@ -277,12 +288,7 @@ public final class IntavePlugin extends JavaPlugin {
       // load config
 
       YamlConfiguration configuration = configService.configuration();
-
-      prefix = configuration.getString("layout.prefix", prefix);
-      prefix = ChatColor.translateAlternateColorCodes('&', prefix);
-      defaultColor = ChatColor.getLastColors(prefix);
-      FaultKicks.applyFrom(configuration.getConfigurationSection("fault-kicks"));
-      ConsoleOutput.applyFrom(configuration.getConfigurationSection("logging"));
+      applyRuntimeConfiguration(configuration);
 
       // stage 8
       Modules.proceedBoot(BootSegment.STAGE_8);
@@ -386,6 +392,55 @@ public final class IntavePlugin extends JavaPlugin {
       Modules.proceedBoot(BootSegment.STAGE_11);
 
       StartupTasks.runAll();
+    });
+  }
+
+  public synchronized void reloadRuntimeConfiguration() {
+    if (!successfullyBooted) {
+      throw new IllegalStateException("Intave is not fully booted yet");
+    }
+    reloadConfig();
+    configService.reload();
+    YamlConfiguration configuration = configService.configuration();
+    applyRuntimeConfiguration(configuration);
+    Heuristics.invalidateConfigurationLayoutCache();
+    PlacementAnalysis.invalidateConfigurationLayoutCache();
+
+    Modules.linker().packetEvents().reloadConfiguration();
+    checkService.reloadConfigurations();
+    reloadRuntimeModules();
+    clearPermissionCaches();
+    trustFactorService.reloadConfiguration();
+    blackListService.reloadConfiguration();
+    proxyMessenger.reloadConfiguration();
+  }
+
+  private void applyRuntimeConfiguration(YamlConfiguration configuration) {
+    prefix = configuration.getString("layout.prefix", prefix);
+    prefix = ChatColor.translateAlternateColorCodes('&', prefix);
+    defaultColor = ChatColor.getLastColors(prefix);
+    FaultKicks.applyFrom(configuration.getConfigurationSection("fault-kicks"));
+    ConsoleOutput.applyFrom(configuration.getConfigurationSection("logging"));
+    logger.reloadConfiguration();
+  }
+
+  private void reloadRuntimeModules() {
+    Modules.find(ViolationProcessor.class).reloadConfiguration();
+    Modules.find(FeedbackSender.class).reloadConfiguration();
+    Modules.find(PacketDelayer.class).reloadConfiguration();
+    Modules.find(SetbackSimulator.class).reloadConfiguration();
+    Modules.find(AttackDispatcher.class).reloadConfiguration();
+    Modules.find(ReconDelayLimiter.class).reloadConfiguration();
+    Modules.find(MovementDispatcher.class).reloadConfiguration();
+    Modules.find(Filters.class).reloadConfiguration();
+  }
+
+  private void clearPermissionCaches() {
+    UserRepository.applyOnAll(user -> {
+      PermissionCache permissionCache = user.permissionCache();
+      if (permissionCache != null) {
+        permissionCache.clear();
+      }
     });
   }
 

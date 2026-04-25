@@ -41,18 +41,26 @@ public final class ProxyMessenger {
   private final IntavePlugin plugin;
   private final IntavePacketSerializer packetSerializer = new IntavePacketSerializer();
 
-  private final boolean packetOutputAllowed;
+  private volatile boolean packetOutputAllowed;
   private volatile boolean channelOpen;
+  private boolean shutdownRegistered;
 
   private Map<Class<? extends IntavePacket>, List<IntavePacketSubscription>> packetListeners = null;
 
   public ProxyMessenger(IntavePlugin plugin) {
     this.plugin = plugin;
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     boolean spigotExpectingProxyConnections = SpigotConfig.bungee;
     boolean serverInOnlineMode = plugin.getServer().getOnlineMode();
     IntaveLogger logger = plugin.logger();
     this.packetOutputAllowed = plugin.settings().getBoolean("proxy.enable", false);
     if (!packetOutputAllowed) {
+      if (channelOpen) {
+        closeChannel();
+      }
       return;
     }
     if (spigotExpectingProxyConnections) {
@@ -68,8 +76,14 @@ public final class ProxyMessenger {
       logger.info(ChatColor.RED + "Proxy connection offline");
       return;
     }
+    if (channelOpen) {
+      return;
+    }
     openChannel();
-    ShutdownTasks.add(this::closeChannel);
+    if (!shutdownRegistered) {
+      ShutdownTasks.add(this::closeChannel);
+      shutdownRegistered = true;
+    }
   }
 
   private void openChannel() {
@@ -91,8 +105,8 @@ public final class ProxyMessenger {
       packetListeners.clear();
     }
     Messenger messenger = Bukkit.getServer().getMessenger();
-    messenger.unregisterIncomingPluginChannel(plugin);
-    messenger.unregisterOutgoingPluginChannel(plugin);
+    messenger.unregisterIncomingPluginChannel(plugin, INCOMING_CHANNEL);
+    messenger.unregisterOutgoingPluginChannel(plugin, OUTGOING_CHANNEL);
     channelOpen = false;
   }
 

@@ -12,7 +12,6 @@ import de.jpx3.intave.diagnostic.message.DebugBroadcast;
 import de.jpx3.intave.diagnostic.message.MessageCategory;
 import de.jpx3.intave.diagnostic.message.MessageSeverity;
 import de.jpx3.intave.executor.BackgroundExecutors;
-import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscriber;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
@@ -31,21 +30,24 @@ public final class TrustFactorService implements BukkitEventSubscriber {
     /*Python.available() ?*/ new EmptyTrustFactorResolver()/* : new StorageTrustfactorResolver()*/
   );
   private final IntavePlugin plugin;
-  private TrustFactorResolver trustFactorResolver, customTrustFactorResolver;
-  private TrustFactorConfiguration trustFactorConfiguration;
-  private TrustFactor defaultTrustFactor = TrustFactor.ORANGE;
+  private volatile TrustFactorResolver trustFactorResolver, customTrustFactorResolver;
+  private volatile TrustFactorConfiguration trustFactorConfiguration;
+  private volatile TrustFactor defaultTrustFactor = TrustFactor.ORANGE;
 
   public TrustFactorService(IntavePlugin plugin) {
     this.plugin = plugin;
   }
 
   public void setup() {
+    reloadConfiguration();
+    plugin.eventLinker().registerEventsIn(this);
+  }
+
+  public void reloadConfiguration() {
     TrustFactorLoader trustFactorLoader = new DebugYamlTrustFactorLoader();
     trustFactorConfiguration = trustFactorLoader.fetch();
-    trustFactorResolver = DEFAULT_RESOLVER;
-
-    plugin.eventLinker().registerEventsIn(this);
-    Synchronizer.synchronize(() -> BackgroundExecutors.execute(this::resolveTrustFactorForAll));
+    trustFactorResolver = customTrustFactorResolver != null ? customTrustFactorResolver : DEFAULT_RESOLVER;
+    BackgroundExecutors.execute(this::resolveTrustFactorForAll);
   }
 
   @BukkitEventSubscription(priority = EventPriority.NORMAL)

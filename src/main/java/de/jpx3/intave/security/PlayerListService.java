@@ -29,9 +29,9 @@ public final class PlayerListService implements BukkitEventSubscriber {
   private final List<String> bluelistKnowledge = new ArrayList<>();
   private final List<String> graylistKnowledge = new ArrayList<>();
   private final Set<InetAddress> blocked = new HashSet<>();
-  private String kickMessage;
-  private boolean messageInChat;
-  private HashList blackList, grayList;
+  private volatile String kickMessage;
+  private volatile boolean messageInChat;
+  private volatile HashList blackList, grayList;
 
   public PlayerListService(IntavePlugin plugin) {
     this.plugin = plugin;
@@ -39,17 +39,21 @@ public final class PlayerListService implements BukkitEventSubscriber {
 
   public void setup() {
     try {
-      loadFilterList();
+      reloadConfiguration();
       linkEvents();
-      applyFilterToOnline();
-      kickMessage = plugin.settings().getString("blacklist.kick-message", "&cYou are on an anti-cheat blacklist and can't join this server");
-      kickMessage = ChatColor.translateAlternateColorCodes('&', kickMessage);
-      messageInChat = plugin.settings().getBoolean("blacklist.message-in-chat", false);
       ShutdownTasks.add(this::saveGraylistKnowledgeToResource);
       ShutdownTasks.add(this::saveBluelistKnowledgeToResource);
     } catch (Exception exception) {
       exception.printStackTrace();
     }
+  }
+
+  public void reloadConfiguration() {
+    loadFilterList();
+    kickMessage = plugin.settings().getString("blacklist.kick-message", "&cYou are on an anti-cheat blacklist and can't join this server");
+    kickMessage = ChatColor.translateAlternateColorCodes('&', kickMessage);
+    messageInChat = plugin.settings().getBoolean("blacklist.message-in-chat", false);
+    applyFilterToOnline();
   }
 
   public String grayKnowledgeData() {

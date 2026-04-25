@@ -202,9 +202,13 @@ public final class IntaveLogger extends PluginLogger {
       String clearMessage = ChatColor.stripColor(message);
 
       boolean finalCompressLogsLater = compressLogsLater;
+      PrintWriter writer = printWriter;
+      if (writer == null) {
+        return;
+      }
       BackgroundExecutors.execute(() -> {
-        printWriter.println(timestamp + clearMessage);
-        printWriter.flush();
+        writer.println(timestamp + clearMessage);
+        writer.flush();
 
         if (finalCompressLogsLater) {
           BackgroundExecutors.executeWhenever(this::performCompression);
@@ -232,6 +236,17 @@ public final class IntaveLogger extends PluginLogger {
       this.printWriter = new PrintWriter(new BufferedWriter(new FileWriter(activeFile, true)));
     } catch (IOException exception) {
       throw new IllegalStateException("Unable to create log file " + activeFileName, exception);
+    }
+  }
+
+  public void reloadConfiguration() {
+    boolean enabled = plugin.settings().getBoolean("logging.file-log", true);
+    FILE_OUTPUT = FileLoggingState.fromBoolean(enabled);
+    if (enabled) {
+      setup();
+    } else if (printWriter != null) {
+      printWriter.close();
+      printWriter = null;
     }
   }
 

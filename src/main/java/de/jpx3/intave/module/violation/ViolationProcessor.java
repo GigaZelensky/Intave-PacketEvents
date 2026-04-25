@@ -42,13 +42,17 @@ public final class ViolationProcessor extends Module {
 
   @Override
   public void enable() {
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     String verboseMode = plugin.settings().getString("logging.verbose-mode",
       plugin.settings().getString("logging.violation-output-mode", ViolationVerboseMode.MITIGATED.name()));
 
     try {
       this.verboseMode = ViolationVerboseMode.valueOf(verboseMode);
     } catch (Exception exception) {
-      IntaveLogger.logger().warn("Invalid verbose mode '" + verboseMode + "' in settings. Using default value '" + this.verboseMode.name() + "'");
+      IntaveLogger.logger().warn("Invalid verbose mode '" + verboseMode + "' in settings. Using default value '" + ViolationVerboseMode.MITIGATED.name() + "'");
       this.verboseMode = ViolationVerboseMode.MITIGATED;
     }
   }
