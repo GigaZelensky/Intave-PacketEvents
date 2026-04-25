@@ -21,7 +21,14 @@ import java.util.stream.Collectors;
 
 import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.DELAY_128s;
 import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.LIMIT_2;
-import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_DIG;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_PLACE;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.FLYING;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.LOOK;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.TRANSACTION;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.USE_ENTITY;
 
 public final class PacketOrderHeuristic extends MetaCheckPart<Heuristics, PacketOrderHeuristic.PacketOrderHeuristicMeta> {
   public PacketOrderHeuristic(Heuristics parentCheck) {

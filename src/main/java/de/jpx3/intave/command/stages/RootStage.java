@@ -391,7 +391,7 @@ public final class RootStage extends CommandStage {
     Heuristics heuristicsCheck = plugin.checks().searchCheck(Heuristics.class);
 
     for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-      List<Anomaly> anomalies = heuristicsCheck.catchAnomaliesOf(UserRepository.userOf(onlinePlayer), false);
+      List<Anomaly> anomalies = heuristicsCheck.catchAnomaliesOf(UserRepository.userOf(onlinePlayer));
       Confidence confidence = heuristicsCheck.computeOverallConfidence(heuristicsCheck.resolveConfidencesOf(anomalies));
       confidenceMap.put(onlinePlayer.getUniqueId(), confidence);
     }
@@ -404,8 +404,8 @@ public final class RootStage extends CommandStage {
       }
       active.set(true);
       Player otherPlayer = Bukkit.getPlayer(uuid);
-      List<Anomaly> anomalies = heuristicsCheck.catchAnomaliesOf(UserRepository.userOf(otherPlayer), false);
-      String patterns = anomalies.stream().map(anomaly -> "p[" + anomaly.key() + "]").distinct().collect(Collectors.joining(","));
+      List<Anomaly> anomalies = heuristicsCheck.catchAnomaliesOf(UserRepository.userOf(otherPlayer));
+      String patterns = anomalies.stream().map(anomaly -> " " + anomaly.key()).distinct().collect(Collectors.joining(","));
       player.sendMessage(ChatColor.RED + confidence.name() + " " + ChatColor.GRAY + otherPlayer.getName() + " | " + patterns);
     });
 

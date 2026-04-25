@@ -23,15 +23,22 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.AttackMetadata;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import de.jpx3.intave.user.meta.ProtocolMetadata;
 import de.jpx3.intave.world.raytrace.EntityRaytraceBlockConstraint;
 import de.jpx3.intave.world.raytrace.Raytrace;
 import de.jpx3.intave.world.raytrace.Raytracing;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
-import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.*;
-import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.LIMIT_1;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.LIMIT_2;
+import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.LIMIT_4;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.ARM_ANIMATION;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_PLACE;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.FLYING;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.LOOK;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.USE_ENTITY;
 
 public final class RotationSnapHeuristic extends MetaCheckPart<Heuristics, RotationSnapHeuristic.RotationSnapHeuristicMeta> {
 
@@ -280,21 +287,16 @@ public final class RotationSnapHeuristic extends MetaCheckPart<Heuristics, Rotat
       }
 
       description += " conf:" + confidence.level() + "/" + meta.internalViolation;
-      Anomaly anomaly = Anomaly.anomalyOf(key, confidence, Anomaly.Type.KILLAURA, description, anomalyOptions(isPartner()));
+      Anomaly anomaly = Anomaly.anomalyOf(key, confidence, Anomaly.Type.KILLAURA, description, anomalyOptions());
       parentCheck().saveAnomaly(player, anomaly);
     } else if (confidence.level() > 0) {
       description += " nonflag(" + violationToAdd + "/" + confidence.level() + "/" + meta.internalViolation + ")";
-      Anomaly anomaly = Anomaly.anomalyOf(key, Confidence.NONE, Anomaly.Type.KILLAURA, description, anomalyOptions(isPartner()));
+      Anomaly anomaly = Anomaly.anomalyOf(key, Confidence.NONE, Anomaly.Type.KILLAURA, description, anomalyOptions());
       parentCheck().saveAnomaly(player, anomaly);
     }
   }
 
-  // I can not test this
-  public boolean isPartner() {
-    return (ProtocolMetadata.VERSION_DETAILS & 0x100) != 0;
-  }
-
-  private int anomalyOptions(boolean isPartner) {
+  private int anomalyOptions() {
     return LIMIT_4 | LIMIT_2 | LIMIT_1;
   }
 
@@ -362,7 +364,7 @@ public final class RotationSnapHeuristic extends MetaCheckPart<Heuristics, Rotat
 
   public static final class RotationSnapHeuristicMeta extends CheckCustomMetadata {
     double lastLastPosX, lastLastPosY, lastLastPosZ;
-//    Map<Integer, Po> entityPositions = new HashMap<>();
+    //    Map<Integer, Po> entityPositions = new HashMap<>();
     private final Tick[] movementAtTick = new Tick[2];
     private final double[] yawMotions = new double[2];
     private final KeyStates[] silentMovements = new KeyStates[2];
