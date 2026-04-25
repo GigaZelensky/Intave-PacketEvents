@@ -27,6 +27,7 @@ import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.ConnectionMetadata;
+import de.jpx3.intave.util.MessageColors;
 import de.jpx3.intave.util.PlainHashes;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -90,7 +91,7 @@ public final class RootStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !"ns".equals(fullSpecifier) && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 
@@ -130,7 +131,7 @@ public final class RootStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 
@@ -211,7 +212,7 @@ public final class RootStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 

@@ -65,6 +65,7 @@ import de.jpx3.intave.test.TestService;
 import de.jpx3.intave.trustfactor.TrustFactorService;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.storage.LongTermViolationStorage;
+import de.jpx3.intave.util.MessageColors;
 import de.jpx3.intave.version.DurationTranslator;
 import de.jpx3.intave.version.IntaveVersion;
 import de.jpx3.intave.version.IntaveVersionList;
@@ -98,7 +99,7 @@ import static de.jpx3.intave.user.meta.ProtocolMetadata.VERSION_DETAILS;
 public final class IntavePlugin extends JavaPlugin {
   private static IntavePlugin singletonInstance;
   private static String version = "UNKNOWN";
-  private static String prefix = ChatColor.translateAlternateColorCodes('&', "&8[&c&lIntave&8]&7 ");
+  private static String prefix = MessageColors.translate("&8[&c&lIntave&8]&7 ");
   private static String defaultColor = ChatColor.getLastColors(prefix);
   private static final UUID gameId = UUID.randomUUID();
   private static boolean offlineMode = false, successfullyBooted = false;
@@ -156,7 +157,7 @@ public final class IntavePlugin extends JavaPlugin {
 
     // preload
     prefix = configService.configuration().getString("layout.prefix", prefix);
-    prefix = ChatColor.translateAlternateColorCodes('&', prefix);
+    prefix = MessageColors.translate(prefix);
   }
 
   @Override
@@ -178,7 +179,7 @@ public final class IntavePlugin extends JavaPlugin {
 
     IntaveDomains.setup();
 
-    prefix = ChatColor.translateAlternateColorCodes('&', prefix);
+    prefix = MessageColors.translate(prefix);
 
     try {
       SecurityManager securityManager = System.getSecurityManager();
@@ -293,7 +294,7 @@ public final class IntavePlugin extends JavaPlugin {
       YamlConfiguration configuration = configService.configuration();
 
       prefix = configuration.getString("layout.prefix", prefix);
-      prefix = ChatColor.translateAlternateColorCodes('&', prefix);
+      prefix = MessageColors.translate(prefix);
       defaultColor = ChatColor.getLastColors(prefix);
       FaultKicks.applyFrom(configuration.getConfigurationSection("fault-kicks"));
       ConsoleOutput.applyFrom(configuration.getConfigurationSection("logging"));

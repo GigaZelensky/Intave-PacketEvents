@@ -7,6 +7,7 @@ import de.jpx3.intave.command.SubCommand;
 import de.jpx3.intave.diagnostic.timings.Timing;
 import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.user.User;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
@@ -56,7 +57,7 @@ public final class PerformanceStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 
@@ -90,7 +91,7 @@ public final class PerformanceStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 

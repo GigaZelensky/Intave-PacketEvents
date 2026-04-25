@@ -16,6 +16,7 @@ import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserLocal;
 import de.jpx3.intave.user.UserRepository;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -495,7 +496,7 @@ public final class ClickFeeder implements EventProcessor {
         }
       }
 
-      return ChatColor.translateAlternateColorCodes('&', builder.toString());
+      return MessageColors.translate(builder.toString());
     }
   }
 
