@@ -3,6 +3,7 @@ package de.jpx3.intave.adapter;
 import de.jpx3.intave.version.MinecraftVersion;
 
 public final class MinecraftVersions {
+  public static final MinecraftVersion VER1_21_6 = new MinecraftVersion("1.21.6");
   public static final MinecraftVersion VER1_21_4 = new MinecraftVersion("1.21.4");
   public static final MinecraftVersion VER1_21_3 = new MinecraftVersion("1.21.3");
   public static final MinecraftVersion VER1_21_1 = new MinecraftVersion("1.21.1");
