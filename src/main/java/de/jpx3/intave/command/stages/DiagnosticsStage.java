@@ -42,6 +42,7 @@ import de.jpx3.intave.user.meta.ConnectionMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 import de.jpx3.intave.user.meta.PunishmentMetadata;
 import de.jpx3.intave.user.storage.PlaytimeStorage;
+import de.jpx3.intave.util.MessageColors;
 import de.jpx3.intave.util.PlainHashes;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -390,7 +391,7 @@ public final class DiagnosticsStage extends CommandStage {
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      player.sendMessage(MessageColors.translate(message));
     });
   }
 

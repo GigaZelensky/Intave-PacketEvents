@@ -10,8 +10,8 @@ import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.resource.Resource;
 import de.jpx3.intave.resource.Resources;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 
@@ -51,7 +51,7 @@ public final class PlayerListService implements BukkitEventSubscriber {
   public void reloadConfiguration() {
     loadFilterList();
     kickMessage = plugin.settings().getString("blacklist.kick-message", "&cYou are on an anti-cheat blacklist and can't join this server");
-    kickMessage = ChatColor.translateAlternateColorCodes('&', kickMessage);
+    kickMessage = MessageColors.translate(kickMessage);
     messageInChat = plugin.settings().getBoolean("blacklist.message-in-chat", false);
     applyFilterToOnline();
   }

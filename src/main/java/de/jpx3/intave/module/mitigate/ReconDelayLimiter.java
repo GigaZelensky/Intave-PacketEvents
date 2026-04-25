@@ -4,8 +4,8 @@ import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.violation.placeholder.Placeholders;
 import de.jpx3.intave.module.violation.placeholder.PlayerContext;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerLoginEvent;
@@ -55,7 +55,7 @@ public final class ReconDelayLimiter extends Module {
       String message = rawMessage;
       PlayerContext playerContext = new PlayerContext(player.getName(), player.getUniqueId(), login.getAddress());
       message = Placeholders.replacePlaceholders(message, Placeholders.PLUGIN_CONTEXT, playerContext);
-      message = ChatColor.translateAlternateColorCodes('&', message);
+      message = MessageColors.translate(message);
       login.setKickMessage(message);
       login.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, message);
       if (refresh) {

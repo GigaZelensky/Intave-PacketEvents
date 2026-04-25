@@ -23,9 +23,9 @@ import de.jpx3.intave.user.storage.StorageViolationEvent;
 import de.jpx3.intave.user.storage.StorageViolationEvents;
 import de.jpx3.intave.version.DurationTranslator;
 import de.jpx3.intave.version.IntaveVersion;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.chat.ComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -422,14 +422,15 @@ public final class BaseStage extends CommandStage {
       StorageViolationEvent firstViolation = violations.first();
       String baseMessage = MessageFormat.format("{0}- detected for using {1}{2}{0} {3}", IntavePlugin.defaultColor(), ChatColor.RED, cheat, durationToString(firstViolation.timePassedSince()));
       String defaultColor = IntavePlugin.defaultColor();
-      TextComponent textComponent = new TextComponent(baseMessage);
-      textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponent[]{
-        new TextComponent(defaultColor + "Check " + ChatColor.RED + correctlyFormattedCheckName(firstViolation.checkName())),
-        new TextComponent(defaultColor + " reached " + ChatColor.RED + firstViolation.violationLevel() + defaultColor + "VL"),
-        new TextComponent(defaultColor + " on " + ChatColor.RED + dateFormat(firstViolation.timestamp())),
-      }));
+      BaseComponent[] components = TextComponent.fromLegacyText(baseMessage);
+      applyHover(
+        components,
+        defaultColor + "Check " + ChatColor.RED + correctlyFormattedCheckName(firstViolation.checkName())
+          + defaultColor + " reached " + ChatColor.RED + firstViolation.violationLevel() + defaultColor + "VL"
+          + defaultColor + " on " + ChatColor.RED + dateFormat(firstViolation.timestamp())
+      );
       if (sender instanceof Player) {
-        ((Player) sender).spigot().sendMessage(textComponent);
+        ((Player) sender).spigot().sendMessage(components);
       } else {
         sender.sendMessage(baseMessage);
       }
@@ -438,27 +439,30 @@ public final class BaseStage extends CommandStage {
 
     String baseMessage = IntavePlugin.defaultColor() + "- detected multiple times for using " + ChatColor.RED + cheat + IntavePlugin.defaultColor() + ", last was " + durationToString(violations.newest().timePassedSince());
     String defaultColor = IntavePlugin.defaultColor();
-    TextComponent newLine = new TextComponent(ComponentSerializer.parse("{text: \"\n\"}"));
-    TextComponent[] textComponents = new TextComponent[violations.size()];
-    int i = 0;
+    StringBuilder hoverText = new StringBuilder();
     for (StorageViolationEvent violation : violations) {
-      TextComponent textComponent = new TextComponent(
-        new TextComponent(defaultColor + "Check " + ChatColor.RED + correctlyFormattedCheckName(violation.checkName())),
-        new TextComponent(defaultColor + " reached " + ChatColor.RED + violation.violationLevel() + defaultColor + "VL"),
-        new TextComponent(defaultColor + " on " + ChatColor.RED + dateFormat(violation.timestamp()))
-      );
-      if (i != violations.size() - 1) {
-        textComponent.addExtra(newLine);
+      if (hoverText.length() > 0) {
+        hoverText.append('\n');
       }
-      textComponents[i++] = textComponent;
+      hoverText
+        .append(defaultColor).append("Check ").append(ChatColor.RED).append(correctlyFormattedCheckName(violation.checkName()))
+        .append(defaultColor).append(" reached ").append(ChatColor.RED).append(violation.violationLevel()).append(defaultColor).append("VL")
+        .append(defaultColor).append(" on ").append(ChatColor.RED).append(dateFormat(violation.timestamp()));
     }
 
-    TextComponent textComponent = new TextComponent(baseMessage);
-    textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, textComponents));
+    BaseComponent[] components = TextComponent.fromLegacyText(baseMessage);
+    applyHover(components, hoverText.toString());
     if (sender instanceof Player) {
-      ((Player) sender).spigot().sendMessage(textComponent);
+      ((Player) sender).spigot().sendMessage(components);
     } else {
       sender.sendMessage(baseMessage);
+    }
+  }
+
+  private void applyHover(BaseComponent[] components, String legacyText) {
+    HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, TextComponent.fromLegacyText(legacyText));
+    for (BaseComponent component : components) {
+      component.setHoverEvent(hoverEvent);
     }
   }
 

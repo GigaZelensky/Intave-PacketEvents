@@ -7,7 +7,7 @@ import de.jpx3.intave.module.violation.placeholder.TextContext;
 import de.jpx3.intave.module.violation.placeholder.ViolationPlaceholderContext;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
-import org.bukkit.ChatColor;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.entity.Player;
 
 public final class MessageFormatter {
@@ -24,7 +24,7 @@ public final class MessageFormatter {
       user.playerContext(),
       placeholderContext
     );
-    output = ChatColor.translateAlternateColorCodes('&', output);
+    output = MessageColors.translate(output);
     output = output.trim().replace("  ", " ");
     return output;
   }
@@ -37,7 +37,7 @@ public final class MessageFormatter {
       Placeholders.SERVER_CONTEXT,
       textContext
     );
-    output = ChatColor.translateAlternateColorCodes('&', output);
+    output = MessageColors.translate(output);
     output = output.trim().replace("  ", " ");
     return output;
   }
@@ -52,7 +52,7 @@ public final class MessageFormatter {
       user.playerContext(),
       violationPlaceholderContext
     );
-    output = ChatColor.translateAlternateColorCodes('&', output);
+    output = MessageColors.translate(output);
     output = output.trim().replace("  ", " ");
     return output;
   }
