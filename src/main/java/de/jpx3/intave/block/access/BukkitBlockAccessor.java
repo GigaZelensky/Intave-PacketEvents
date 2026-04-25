@@ -18,7 +18,6 @@ final class BukkitBlockAccessor implements BlockAccessor {
   private Method breakSpeedMethod;
   private Method blockDataMethod;
   private Method replaceableMethod;
-  private Method hardnessMethod;
 
   @Override
   public Material typeOf(Block block) {
@@ -56,12 +55,7 @@ final class BukkitBlockAccessor implements BlockAccessor {
     if (serverBreakSpeed != null) {
       return serverBreakSpeed;
     }
-    Material material = block.getType();
-    float hardness = hardnessOf(material);
-    if (hardness <= 0.0F) {
-      return 1.0F;
-    }
-    return 1.0F / (hardness * 30.0F);
+    return BlockAccessFallbacks.blockDamage(world, blockPosition);
   }
 
   @Override
@@ -120,16 +114,4 @@ final class BukkitBlockAccessor implements BlockAccessor {
     }
   }
 
-  private float hardnessOf(Material material) {
-    try {
-      Method method = hardnessMethod;
-      if (method == null) {
-        method = Material.class.getMethod("getHardness");
-        hardnessMethod = method;
-      }
-      return ((Number) method.invoke(material)).floatValue();
-    } catch (ReflectiveOperationException ignored) {
-      return material.isSolid() ? 1.5F : 0.0F;
-    }
-  }
 }

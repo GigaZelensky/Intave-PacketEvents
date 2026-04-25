@@ -45,6 +45,9 @@ public final class v8BlockAccessor implements BlockAccessor {
   @Override
   @PatchyAutoTranslation
   public float blockDamage(World world, Player player, ItemStack itemInHand, BlockPosition blockPosition) {
+    if (player == null) {
+      return BlockAccessFallbacks.blockDamage(world, blockPosition);
+    }
     WorldServer worldServer = ((CraftWorld) world).getHandle();
     net.minecraft.server.v1_8_R3.BlockPosition blockposition = new net.minecraft.server.v1_8_R3.BlockPosition(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
     User user = UserRepository.userOf(player);
@@ -58,6 +61,9 @@ public final class v8BlockAccessor implements BlockAccessor {
   @Override
   @PatchyAutoTranslation
   public boolean replacementPlace(World world, Player player, BlockPosition blockPosition) {
+    if (player == null) {
+      return BlockAccessFallbacks.replacementPlace(world, null, blockPosition);
+    }
     WorldServer worldServer = ((CraftWorld) world).getHandle();
     net.minecraft.server.v1_8_R3.BlockPosition blockposition = new net.minecraft.server.v1_8_R3.BlockPosition(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
     User user = UserRepository.userOf(player);

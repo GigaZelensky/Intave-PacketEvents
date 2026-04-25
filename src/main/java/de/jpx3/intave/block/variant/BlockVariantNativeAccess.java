@@ -40,13 +40,20 @@ public final class BlockVariantNativeAccess {
     if (!MODERN_MATERIAL_PROCESSING) {
       return SpigotConversionUtil.toBukkitMaterialData(blockState).getData();
     }
-    Material type = SpigotConversionUtil.toBukkitBlockData(blockState).getMaterial();
+    Material type = materialAccess(blockState);
     Object nativeBlockData = blockState;
     int index = BlockVariantRegister.variantIndexOf(type, nativeBlockData);
     if (index < 0) {
       throw new IllegalStateException("Invalid block data update: " + type + "/" + blockState);
     }
     return index;
+  }
+
+  public static Material materialAccess(WrappedBlockState blockState) {
+    if (!MODERN_MATERIAL_PROCESSING) {
+      return SpigotConversionUtil.toBukkitMaterialData(blockState).getItemType();
+    }
+    return SpigotConversionUtil.toBukkitBlockData(blockState).getMaterial();
   }
 
   public static Object nativeVariantAccess(Block bukkitBlock) {

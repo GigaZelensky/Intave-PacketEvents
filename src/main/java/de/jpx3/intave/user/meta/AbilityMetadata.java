@@ -92,9 +92,10 @@ public final class AbilityMetadata {
   }
 
   private void setupAttribute(String name, double baseValue) {
+    String originalName = name;
     name = keyTranslation(name);
     try {
-      Attribute attributeType = Attributes.getByName(name);
+      Attribute attributeType = resolveAttributeType(originalName, name);
       if (attributeType == null) {
         IntaveLogger.logger().warn("Unable to resolve attribute " + name + " for player " + player.getName());
         return;
@@ -169,7 +170,7 @@ public final class AbilityMetadata {
     if (direct != null) {
       return direct;
     }
-    Attribute attributeType = Attributes.getByName(key);
+    Attribute attributeType = resolveAttributeType(key, key);
     if (attributeType == null) {
       return null;
     }
@@ -181,12 +182,25 @@ public final class AbilityMetadata {
     return null;
   }
 
+  private Attribute resolveAttributeType(String originalKey, String translatedKey) {
+    Attribute attributeType = Attributes.getByName(translatedKey);
+    if (attributeType != null) {
+      return attributeType;
+    }
+    String remappedKey = ATTRIBUTE_FALLBACKS.get(originalKey);
+    if (remappedKey == null) {
+      remappedKey = ATTRIBUTE_FALLBACKS.get(translatedKey);
+    }
+    return remappedKey == null ? null : Attributes.getByName(remappedKey);
+  }
+
   public List<? extends String> attributeKeys() {
     return new ArrayList<>(attributes.keySet());
   }
 
   private static final boolean KEY_WRAPPED;
   private static final Map<String, String> REMAP;
+  private static final Map<String, String> ATTRIBUTE_FALLBACKS;
 
   static {
     KEY_WRAPPED = MinecraftVersions.VER1_16_0.atOrAbove();
@@ -217,6 +231,21 @@ public final class AbilityMetadata {
       remap.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
     }
     REMAP = ImmutableMap.copyOf(remap);
+
+    Map<String, String> attributeFallbacks = new HashMap<>();
+    attributeFallbacks.put("generic.maxHealth", "generic.max_health");
+    attributeFallbacks.put("generic.followRange", "generic.follow_range");
+    attributeFallbacks.put("generic.knockbackResistance", "generic.knockback_resistance");
+    attributeFallbacks.put("generic.movementSpeed", "generic.movement_speed");
+    attributeFallbacks.put("generic.attackDamage", "generic.attack_damage");
+    attributeFallbacks.put("generic.attackSpeed", "generic.attack_speed");
+    attributeFallbacks.put("generic.armorToughness", "generic.armor_toughness");
+    attributeFallbacks.put("generic.attackKnockback", "generic.attack_knockback");
+    attributeFallbacks.put("horse.jumpStrength", "horse.jump_strength");
+    attributeFallbacks.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
+    attributeFallbacks.put("generic.scale", "generic.scale");
+    attributeFallbacks.put("player.sneaking_speed", "player.sneaking_speed");
+    ATTRIBUTE_FALLBACKS = ImmutableMap.copyOf(attributeFallbacks);
   }
 
   private String keyTranslation(String key) {

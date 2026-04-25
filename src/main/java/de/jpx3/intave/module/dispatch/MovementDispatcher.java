@@ -32,6 +32,7 @@ import de.jpx3.intave.block.shape.BlockShapes;
 import de.jpx3.intave.block.tick.ShulkerBox;
 import de.jpx3.intave.block.type.MaterialSearch;
 import de.jpx3.intave.block.variant.BlockVariant;
+import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.check.CheckService;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
@@ -1209,7 +1210,7 @@ public final class MovementDispatcher extends Module {
   ) {
     Player player = user.player();
     MovementMetadata movement = user.meta().movement();
-    Material material = SpigotConversionUtil.toBukkitBlockData(packet.getBlockType()).getMaterial();
+    Material material = BlockVariantNativeAccess.materialAccess(packet.getBlockType());
     if (SHULKER_BOX_MATERIALS.contains(material)) {
       BlockPosition blockPosition = PacketEventsConversions.toBlockPosition(packet.getBlockPosition());
       World world = player.getWorld();

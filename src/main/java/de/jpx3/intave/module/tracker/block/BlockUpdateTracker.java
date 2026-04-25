@@ -30,7 +30,6 @@ import de.jpx3.intave.util.PacketEventsConversions;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -165,7 +164,10 @@ public final class BlockUpdateTracker extends Module {
         int positionX = blockChange.position.getX();
         int positionY = blockChange.position.getY();
         int positionZ = blockChange.position.getZ();
-        if (speculativeBlocks && blockCache.isClientSpeculatingAt(positionX, positionY, positionZ)) {
+        if (material == null) {
+          blockCache.unlockOverride(positionX, positionY, positionZ);
+          blockCache.invalidateCacheAround(positionX, positionY, positionZ);
+        } else if (speculativeBlocks && blockCache.isClientSpeculatingAt(positionX, positionY, positionZ)) {
           blockCache.setClientSpeculationValue(world, positionX, positionY, positionZ, material, variant, user.meta().inventory().lastBlockSequenceNumber);
         } else {
           blockCache.unlockOverride(positionX, positionY, positionZ);
@@ -212,23 +214,49 @@ public final class BlockUpdateTracker extends Module {
     PacketTypeCommon packetType = event.getPacketType();
     if (packetType == PacketType.Play.Server.BLOCK_CHANGE) {
       WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(event);
-      changes.add(blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), packet.getBlockState()));
+      addBlockChange(changes, blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), packet.getBlockState(), packet.getBlockId()));
     } else if (packetType == PacketType.Play.Server.MULTI_BLOCK_CHANGE) {
       WrapperPlayServerMultiBlockChange packet = new WrapperPlayServerMultiBlockChange(event);
-      for (WrapperPlayServerMultiBlockChange.EncodedBlock block : packet.getBlocks()) {
+      WrapperPlayServerMultiBlockChange.EncodedBlock[] blocks = packet.getBlocks();
+      if (blocks == null) {
+        return changes;
+      }
+      for (WrapperPlayServerMultiBlockChange.EncodedBlock block : blocks) {
         BlockPosition position = new BlockPosition(block.getX(), block.getY(), block.getZ());
-        changes.add(blockChange(player, position, block.getBlockState(packet.getServerVersion().toClientVersion())));
+        addBlockChange(changes, blockChange(player, position, block.getBlockState(packet.getServerVersion().toClientVersion()), block.getBlockId()));
       }
     } else if (packetType == PacketType.Play.Server.ACKNOWLEDGE_PLAYER_DIGGING) {
       WrapperPlayServerAcknowledgePlayerDigging packet = new WrapperPlayServerAcknowledgePlayerDigging(event);
-      changes.add(blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), WrappedBlockState.getByGlobalId(packet.getServerVersion().toClientVersion(), packet.getBlockId())));
+      addBlockChange(changes, blockChange(player, PacketEventsConversions.toBlockPosition(packet.getBlockPosition()), WrappedBlockState.getByGlobalId(packet.getServerVersion().toClientVersion(), packet.getBlockId()), packet.getBlockId()));
     }
     return changes;
   }
 
-  private BlockChangeData blockChange(Player player, BlockPosition position, WrappedBlockState state) {
-    Material material = SpigotConversionUtil.toBukkitBlockData(state).getMaterial();
-    return new BlockChangeData(position, material, BlockVariantNativeAccess.variantAccess(state));
+  private void addBlockChange(List<BlockChangeData> changes, BlockChangeData blockChange) {
+    if (blockChange != null) {
+      changes.add(blockChange);
+    }
+  }
+
+  private BlockChangeData blockChange(Player player, BlockPosition position, WrappedBlockState state, int legacyCombinedId) {
+    if (position == null) {
+      return null;
+    }
+    Material material = null;
+    int variant = 0;
+    if (state != null) {
+      try {
+        material = BlockVariantNativeAccess.materialAccess(state);
+        variant = BlockVariantNativeAccess.variantAccess(state);
+      } catch (RuntimeException ignored) {
+        material = null;
+      }
+    }
+    if (material == null) {
+      material = Material.getMaterial(legacyCombinedId >> 4);
+      variant = legacyCombinedId & 15;
+    }
+    return new BlockChangeData(position, material, variant);
   }
 
   private static boolean inDistance(Collection<BlockChangeData> blockChanges, Location playerLocation, int requiredDistance) {
