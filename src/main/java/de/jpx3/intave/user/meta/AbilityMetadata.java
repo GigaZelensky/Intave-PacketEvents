@@ -114,6 +114,10 @@ public final class AbilityMetadata {
   }
 
   public double attributeValue(String key, Predicate<? super PropertyModifier> filter) {
+    return attributeValue(key, filter, null);
+  }
+
+  public double attributeValue(String key, Predicate<? super PropertyModifier> filter, PropertyModifier virtualModifier) {
     key = keyTranslation(key);
     Property attribute = attributes.get(key);
     List<PropertyModifier> attributeModifiers = this.attributeModifiers.get(key);
@@ -140,6 +144,19 @@ public final class AbilityMetadata {
               y *= 1.0 + modifier.getAmount();
               break;
           }
+        }
+      }
+      if (virtualModifier != null && virtualModifier.getOperation().ordinal() == phase) {
+        switch (phase) {
+          case 0:
+            x += virtualModifier.getAmount();
+            break;
+          case 1:
+            y += x * virtualModifier.getAmount();
+            break;
+          case 2:
+            y *= 1.0 + virtualModifier.getAmount();
+            break;
         }
       }
       if (phase == 0) {

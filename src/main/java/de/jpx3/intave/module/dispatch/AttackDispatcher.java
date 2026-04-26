@@ -83,8 +83,6 @@ public final class AttackDispatcher extends Module {
     InventoryMetadata inventoryData = user.meta().inventory();
     ItemStack itemStack = inventoryData.heldItem();
 
-    double f = user.meta().abilities().attributeValue("generic.attackDamage");
-    double f1 = itemStack == null ? 0 : Math.max(itemStack.getEnchantmentLevel(Enchantment.DAMAGE_ARTHROPODS), itemStack.getEnchantmentLevel(Enchantment.DAMAGE_UNDEAD));
     double itemKnockback = itemStack == null ? 0 : itemStack.getEnchantmentLevel(Enchantment.KNOCKBACK);
     boolean isSprinting = movementData.isSprinting();
 
@@ -104,7 +102,7 @@ public final class AttackDispatcher extends Module {
       attackData.setLastAttackedEntityID(entityId);
       // Sprinting will be set to zero after the first reduce in the tick, does not apply to knockback
       boolean limitedToOneAttack = itemKnockback == 0;
-      if (entity.isPlayer && (f > 0 || f1 > 0) && (isSprinting || itemKnockback > 0)) {
+      if (entity.isPlayer && (isSprinting || itemKnockback > 0)) {
         movementData.pastPlayerReduceAttackPhysics = 0;
         if (movementData.reduceTicks == 0 || !limitedToOneAttack) {
           movementData.reduceTicks++;

@@ -1041,7 +1041,20 @@ public final class MovementDispatcher extends Module {
     Player player = event.getPlayer();
     Integer entityId = packet.getEntityId();
 
-    if (!ELYTRA_SUPPORTED || entityId != player.getEntityId()) {
+    if (entityId != player.getEntityId()) {
+      return;
+    }
+
+    User user = UserRepository.userOf(player);
+    MetadataBundle meta = user.meta();
+    MovementMetadata movement = meta.movement();
+    Object frozenTicks = MinecraftVersions.VER1_17_0.atOrAbove() ? metadataValue(packet.getEntityMetadata(), 7) : null;
+    if (frozenTicks instanceof Number) {
+      int value = ((Number) frozenTicks).intValue();
+      user.tickFeedback(() -> movement.powderSnowFrozenTicks = value);
+    }
+
+    if (!ELYTRA_SUPPORTED) {
       return;
     }
 
@@ -1051,9 +1064,6 @@ public final class MovementDispatcher extends Module {
       return;
     }
 
-    User user = UserRepository.userOf(player);
-    MetadataBundle meta = user.meta();
-    MovementMetadata movement = meta.movement();
     ProtocolMetadata protocol = meta.protocol();
 
     if (!protocol.canUseElytra()) {
