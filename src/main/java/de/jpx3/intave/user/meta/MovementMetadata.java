@@ -57,6 +57,8 @@ import static de.jpx3.intave.user.meta.ProtocolMetadata.*;
 public final class MovementMetadata implements SimulationEnvironment {
   public static final UUID SPRINTING_MODIFIER_UUID = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
   public static final ResourceLocation SPRINTING_MODIFIER_NAME = new ResourceLocation("minecraft:sprinting");
+  public static final UUID POWDER_SNOW_MODIFIER_UUID = UUID.fromString("1eaf83ff-7207-4596-b37a-d7a07b3ec4ce");
+  public static final ResourceLocation POWDER_SNOW_MODIFIER_NAME = new ResourceLocation("minecraft:powder_snow");
   public static final PropertyModifier SPRINTING_MODIFIER = new PropertyModifier(
     SPRINTING_MODIFIER_NAME,
     SPRINTING_MODIFIER_UUID,
@@ -87,6 +89,7 @@ public final class MovementMetadata implements SimulationEnvironment {
   public boolean inWaterSinceFallDamagePostCheck;
   public float seenFallDamage;
   public double gravity;
+  public int powderSnowFrozenTicks;
   public boolean outsideBorder = true;
   public Motion motionProcessorContext = new Motion();
   public Vector lookVector = new Vector();
@@ -827,7 +830,11 @@ public final class MovementMetadata implements SimulationEnvironment {
     MetadataBundle meta = user.meta();
     AbilityMetadata abilityData = meta.abilities();
     jumpMovementFactor = 0.02f;
-    aiMoveSpeed = (float) abilityData.attributeValue("generic.movementSpeed", AbilityMetadata.EXCLUDE_SPRINT_MODIFIER);
+    aiMoveSpeed = (float) abilityData.attributeValue(
+      "generic.movementSpeed",
+      this::appliesToMovementPrediction,
+      powderSnowModifierForPrediction()
+    );
     boolean factorAdditionRequired = meta.protocol().protocolVersion() >= 762 ? sprinting : lastSprinting;
     if (factorAdditionRequired) {
       jumpMovementFactor = (float) ((double) jumpMovementFactor + (double) 0.02f * 0.3d);
@@ -1025,6 +1032,48 @@ public final class MovementMetadata implements SimulationEnvironment {
     return name != null
       && ("minecraft:sprinting".equalsIgnoreCase(name.toString())
       || SPRINTING_MODIFIER_UUID.toString().equalsIgnoreCase(name.toString()));
+  }
+
+  public static boolean isPowderSnowModifier(PropertyModifier modifier) {
+    if (modifier == null) {
+      return false;
+    }
+    if (POWDER_SNOW_MODIFIER_UUID.equals(modifier.getUUID())) {
+      return true;
+    }
+    ResourceLocation name = modifier.getName();
+    if (name == null) {
+      return false;
+    }
+    String text = name.toString();
+    return "minecraft:powder_snow".equalsIgnoreCase(text)
+      || "powder_snow".equalsIgnoreCase(text)
+      || text.toLowerCase(Locale.ROOT).endsWith(":powder_snow");
+  }
+
+  private boolean appliesToMovementPrediction(PropertyModifier modifier) {
+    return !isSprintingModifier(modifier) && !isPowderSnowModifier(modifier);
+  }
+
+  private PropertyModifier powderSnowModifierForPrediction() {
+    if (!powderSnowModifierApplies()) {
+      return null;
+    }
+    int ticksToFreeze = 140;
+    float percentFrozen = (float) Math.min(powderSnowFrozenTicks, ticksToFreeze) / (float) ticksToFreeze;
+    float speedReduction = -0.05F * percentFrozen;
+    return new PropertyModifier(
+      POWDER_SNOW_MODIFIER_NAME,
+      POWDER_SNOW_MODIFIER_UUID,
+      speedReduction,
+      PropertyModifier.Operation.ADDITION
+    );
+  }
+
+  private boolean powderSnowModifierApplies() {
+    return user.meta().protocol().protocolVersion() >= ProtocolMetadata.VER_1_17
+      && powderSnowFrozenTicks > 0
+      && frictionMaterial() != Material.AIR;
   }
 
   public Superposition<Motion> velocitySuperposition() {
