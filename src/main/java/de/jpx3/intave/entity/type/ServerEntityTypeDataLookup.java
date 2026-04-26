@@ -71,6 +71,8 @@ final class ServerEntityTypeDataLookup implements EntityTypeDataResolver {
     register("bat", 0.5F, 0.9F);
     register("bee", 0.7F, 0.6F);
     register("blaze", 0.6F, 1.8F);
+    register("bogged", 0.6F, 1.99F);
+    register("breeze", 0.6F, 1.77F);
     register("camel", 1.7F, 2.375F);
     register("cat", 0.6F, 0.7F);
     register("cave_spider", 0.7F, 0.5F);
@@ -78,6 +80,8 @@ final class ServerEntityTypeDataLookup implements EntityTypeDataResolver {
     register("cod", 0.5F, 0.3F);
     register("cow", 0.9F, 1.4F);
     register("creeper", 0.6F, 1.7F);
+    register("creaking", 0.9F, 2.7F);
+    register("copper_golem", 0.5F, 1.0F);
     register("dolphin", 0.9F, 0.6F);
     register("donkey", 1.3965F, 1.5F);
     register("drowned", 0.6F, 1.95F);
@@ -92,6 +96,7 @@ final class ServerEntityTypeDataLookup implements EntityTypeDataResolver {
     register("giant", 3.6F, 11.7F);
     register("glow_squid", 0.8F, 0.8F);
     register("goat", 0.9F, 1.3F);
+    register("happy_ghast", 4.0F, 4.0F);
     register("guardian", 0.85F, 0.85F);
     register("hoglin", 1.3965F, 1.4F);
     register("horse", 1.3965F, 1.6F);
@@ -104,6 +109,7 @@ final class ServerEntityTypeDataLookup implements EntityTypeDataResolver {
     register("mule", 1.3965F, 1.6F);
     register("ocelot", 0.6F, 0.7F);
     register("panda", 1.3F, 1.25F);
+    register("parched", 0.6F, 1.99F);
     register("parrot", 0.5F, 0.9F);
     register("phantom", 0.9F, 0.5F);
     register("pig", 0.9F, 0.9F);
