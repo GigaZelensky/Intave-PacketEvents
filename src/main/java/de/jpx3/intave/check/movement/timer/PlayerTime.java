@@ -82,19 +82,19 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
     PlayerTimeMeta checkMeta = metaOf(user);
     playerJoinTimeCache.put(player.getUniqueId(), System.nanoTime());
     PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, PacketEventBuffer.cloneFullBuffer(event));
-    user.tickFeedback(() -> checkMeta.gameJoinReceived = true, FeedbackOptions.SELF_SYNCHRONIZATION);
+    user.tickFeedback(() -> checkMeta.gameJoinReceived = true);
     event.setCancelled(true);
   }
 
   @BukkitEventSubscription
   public void on(PlayerJoinEvent join) {
     Player player = join.getPlayer();
+    User user = userOf(player);
+    PlayerTimeMeta checkMeta = metaOf(user);
     if (!playerJoinTimeCache.containsKey(player.getUniqueId())) {
-      User user = userOf(player);
-      PlayerTimeMeta checkMeta = metaOf(user);
       playerJoinTimeCache.put(player.getUniqueId(), System.nanoTime());
-      user.tickFeedback(() -> checkMeta.gameJoinReceived = true);
     }
+    user.tickFeedback(() -> checkMeta.gameJoinReceived = true);
   }
 
   @BukkitEventSubscription
