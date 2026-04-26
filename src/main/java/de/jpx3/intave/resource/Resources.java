@@ -157,9 +157,15 @@ public final class Resources {
 
       @Override
       public void close() throws IOException {
-        super.close();
-        onClose.run();
+        if (closed) {
+          return;
+        }
         closed = true;
+        try {
+          super.close();
+        } finally {
+          onClose.run();
+        }
       }
 
       @Override
@@ -177,12 +183,15 @@ public final class Resources {
 
       @Override
       public synchronized void close() throws IOException {
-        super.close();
         if (closed) {
           return;
         }
-        onClose.run();
         closed = true;
+        try {
+          super.close();
+        } finally {
+          onClose.run();
+        }
       }
 
       @Override
