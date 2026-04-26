@@ -11,9 +11,9 @@ import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.EffectMetadata;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffectType;
+
+import java.util.Locale;
 
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.HIGH;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.ENTITY_EFFECT;
@@ -59,22 +59,29 @@ public final class EffectTracker extends Module {
     if (entityId != player.getEntityId()) {
       return;
     }
-    PotionEffectType potionEffectType = SpigotConversionUtil.toBukkitPotionEffectType(packet.getPotionType());
+    int potionEffectType = effectTypeId(packet.getPotionType());
     user.tickFeedback(() -> receiveEffectRemoval(player, potionEffectType));
   }
 
-  private void receiveEffectRemoval(Player player, PotionEffectType potionEffectType) {
+  private void receiveEffectRemoval(Player player, int potionEffectType) {
     User user = UserRepository.userOf(player);
     EffectMetadata potionData = user.meta().potions();
-    if (potionEffectType.equals(PotionEffectType.SPEED)) {
-      potionData.potionEffectSpeedAmplifier(0);
-      potionData.potionEffectSpeedDuration = 0;
-    } else if (potionEffectType.equals(PotionEffectType.SLOW)) {
-      potionData.potionEffectSlownessAmplifier(0);
-      potionData.potionEffectSlownessDuration = 0;
-    } else if (potionEffectType.equals(PotionEffectType.JUMP)) {
-      potionData.potionEffectJumpAmplifier(0);
-      potionData.potionEffectJumpDuration = 0;
+    switch (potionEffectType) {
+      case POTION_EFFECT_SPEED: {
+        potionData.potionEffectSpeedAmplifier(0);
+        potionData.potionEffectSpeedDuration = 0;
+        break;
+      }
+      case POTION_EFFECT_SLOWNESS: {
+        potionData.potionEffectSlownessAmplifier(0);
+        potionData.potionEffectSlownessDuration = 0;
+        break;
+      }
+      case POTION_EFFECT_JUMP_BOOST: {
+        potionData.potionEffectJumpAmplifier(0);
+        potionData.potionEffectJumpDuration = 0;
+        break;
+      }
     }
   }
 
@@ -110,16 +117,31 @@ public final class EffectTracker extends Module {
   }
 
   private int effectTypeId(PotionType potionType) {
-    if (potionType == PotionTypes.SPEED) {
+    if (potionType == null) {
+      return -1;
+    }
+    if (potionType == PotionTypes.SPEED || potionTypeNameMatches(potionType, "speed")) {
       return POTION_EFFECT_SPEED;
     }
-    if (potionType == PotionTypes.SLOWNESS) {
+    if (potionType == PotionTypes.SLOWNESS || potionTypeNameMatches(potionType, "slowness")) {
       return POTION_EFFECT_SLOWNESS;
     }
-    if (potionType == PotionTypes.JUMP_BOOST) {
+    if (potionType == PotionTypes.JUMP_BOOST || potionTypeNameMatches(potionType, "jump_boost")) {
       return POTION_EFFECT_JUMP_BOOST;
     }
     return -1;
+  }
+
+  private boolean potionTypeNameMatches(PotionType potionType, String key) {
+    if (potionType.getName() == null) {
+      return false;
+    }
+    String potionKey = potionType.getName().getKey();
+    if (key.equalsIgnoreCase(potionKey)) {
+      return true;
+    }
+    String text = potionType.getName().toString().toLowerCase(Locale.ROOT);
+    return text.equals("minecraft:" + key) || text.equals(key);
   }
 
   private static class PotionEffectOutput {

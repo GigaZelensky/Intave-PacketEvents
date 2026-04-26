@@ -35,12 +35,12 @@ public final class EffectMetadata {
     switch (potionEffect.getType().getId()) {
       case POTION_EFFECT_SPEED: {
         potionEffectSpeedDuration = duration;
-        potionEffectSpeedAmplifier = amplifier;
+        potionEffectSpeedAmplifier = amplifier + 1;
         break;
       }
       case POTION_EFFECT_SLOWNESS: {
         potionEffectSlownessDuration = duration;
-        potionEffectSlownessAmplifier = amplifier;
+        potionEffectSlownessAmplifier = amplifier + 1;
         break;
       }
       case POTION_EFFECT_JUMP_BOOST: {
