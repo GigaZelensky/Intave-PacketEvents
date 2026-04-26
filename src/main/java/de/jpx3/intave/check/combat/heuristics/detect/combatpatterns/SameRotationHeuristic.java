@@ -1,9 +1,11 @@
 package de.jpx3.intave.check.combat.heuristics.detect.combatpatterns;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.adapter.MinecraftVersions;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketEventsAdapter;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.Anomaly;
@@ -33,9 +35,9 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
       FLYING, LOOK, POSITION, POSITION_LOOK
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    if (ProtocolLibraryAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_9_0) && player.isInsideVehicle()) {
+    if (PacketEventsAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_9_0) && player.isInsideVehicle()) {
       return;
     }
     User user = userOf(player);
@@ -195,7 +197,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
     return confidence;
   }
 
-  private void prepareNextTick(User user, Tick currentTick, PacketType packetType) {
+  private void prepareNextTick(User user, Tick currentTick, PacketTypeCommon packetType) {
     SameRotationHeuristicMeta meta = metaOf(user);
 
     meta.ticksSinceRespawn++;
@@ -211,7 +213,7 @@ public final class SameRotationHeuristic extends MetaCheckPart<Heuristics, SameR
       meta.pitchRotations.remove(0);
     }
 
-    if (packetType == PacketType.Play.Client.LOOK || packetType == PacketType.Play.Client.POSITION_LOOK) {
+    if (packetType == PacketType.Play.Client.PLAYER_ROTATION || packetType == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION) {
       meta.rotationsSinceTeleport++;
     }
   }

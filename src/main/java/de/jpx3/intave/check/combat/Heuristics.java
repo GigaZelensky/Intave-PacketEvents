@@ -1,8 +1,7 @@
 package de.jpx3.intave.check.combat;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
@@ -66,12 +65,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -100,19 +94,6 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
 
     this.setupSubChecks();
     this.setupEvaluationScheduler(plugin);
-  }
-
-  public static boolean legacyConfigurationLayout() {
-    if (legacyConfigLayCache != null) {
-      return legacyConfigLayCache;
-    }
-    YamlConfiguration settings = IntavePlugin.singletonInstance().settings();
-    ConfigurationSection section = settings.getConfigurationSection("check.heuristics.cloud-thresholds.on-premise");
-    if (section != null) {
-      return legacyConfigLayCache = false;
-    } else {
-      return legacyConfigLayCache = true;
-    }
   }
 
   private void setupEvaluationScheduler(IntavePlugin plugin) {
@@ -240,7 +221,7 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
       if (legacyConfigurationLayout()) {
         threshold = "confidence-thresholds." + overallActiveConfidence.output();
       } else {
-        threshold = "cloud-thresholds.on-premise";
+        threshold = "analysis-thresholds.on-premise";
       }
 
       String message = "is fighting suspiciously";
@@ -255,7 +236,23 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
     }
   }
 
+  public static boolean legacyConfigurationLayout() {
+    if (legacyConfigLayCache != null) {
+      return legacyConfigLayCache;
+    }
+    YamlConfiguration settings = IntavePlugin.singletonInstance().settings();
+    ConfigurationSection section = settings.getConfigurationSection("check.heuristics.analysis-thresholds.on-premise");
+    if (section != null) {
+//      IntaveLogger.logger().info("Using new heuristics format");
+      return legacyConfigLayCache = false;
+    } else {
+//      IntaveLogger.logger().info("Still using old heuristics config format");
+      return legacyConfigLayCache = true;
+    }
+  }
+
   @NotNull
+  @SuppressWarnings("UnusedAssignment")
   public List<Anomaly> catchAnomaliesOf(User user) {
     if (!user.hasPlayer()) {
       return Collections.emptyList();
@@ -337,15 +334,10 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
       USE_ENTITY
     }
   )
-  public void receiveUseEntity(PacketEvent event) {
+  public void receiveUseEntity(ProtocolPacketEvent event, WrapperPlayClientInteractEntity packet) {
     Player player = event.getPlayer();
     HeuristicMeta heuristicMeta = metaOf(player);
-    PacketContainer packet = event.getPacket();
-    EnumWrappers.EntityUseAction action = packet.getEntityUseActions().readSafely(0);
-    if (action == null) {
-      action = packet.getEnumEntityUseActions().read(0).getAction();
-    }
-    if (action == EnumWrappers.EntityUseAction.ATTACK) {
+    if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
       if (heuristicMeta.overallAttacks++ == 0) {
         heuristicMeta.firstAttack = System.currentTimeMillis();
       }
@@ -385,7 +377,7 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
     }
   )
   @Deprecated
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     if (event.isCancelled()) {
       return;
     }

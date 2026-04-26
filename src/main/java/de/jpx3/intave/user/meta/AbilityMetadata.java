@@ -1,10 +1,9 @@
 package de.jpx3.intave.user.meta;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.WrappedAttribute;
-import com.comphenix.protocol.wrappers.WrappedAttributeModifier;
+import com.github.retrooper.packetevents.protocol.attribute.Attribute;
+import com.github.retrooper.packetevents.protocol.attribute.Attributes;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes.Property;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes.PropertyModifier;
 import com.google.common.collect.ImmutableMap;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.adapter.MinecraftVersions;
@@ -21,9 +20,8 @@ import static de.jpx3.intave.module.tracker.player.AbilityTracker.GameMode.NOT_S
 
 public final class AbilityMetadata {
   private static final UUID SPEED_MODIFIER_SPRINTING_UUID = UUID.fromString("662A6B8D-DA3E-4C1C-8813-96EA6097278D");
-  public static final Predicate<WrappedAttributeModifier> EXCLUDE_SPRINT_MODIFIER = modifier -> modifier.getUUID() == null ?
-    !"662A6B8D-DA3E-4C1C-8813-96EA6097278D".equalsIgnoreCase(modifier.getKey().getKey()) && !"minecraft:sprinting".equalsIgnoreCase(modifier.getKey().getFullKey())
-    : !modifier.getUUID().equals(SPEED_MODIFIER_SPRINTING_UUID);
+  public static final Predicate<PropertyModifier> EXCLUDE_SPRINT_MODIFIER =
+    modifier -> !MovementMetadata.isSprintingModifier(modifier);
 
 
   private final Player player;
@@ -36,8 +34,8 @@ public final class AbilityMetadata {
   private float flySpeed = 0.05f;
   private float walkSpeed = 0.1f;
 
-  private final Map<String, WrappedAttribute> attributes = new ConcurrentHashMap<>();
-  private final Map<String, List<WrappedAttributeModifier>> attributeModifiers = new ConcurrentHashMap<>();
+  private final Map<String, Property> attributes = new ConcurrentHashMap<>();
+  private final Map<String, List<PropertyModifier>> attributeModifiers = new ConcurrentHashMap<>();
 
   public float unsynchronizedHealth;
   public float health;
@@ -94,11 +92,15 @@ public final class AbilityMetadata {
   }
 
   private void setupAttribute(String name, double baseValue) {
+    String originalName = name;
     name = keyTranslation(name);
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.UPDATE_ATTRIBUTES);
     try {
-      WrappedAttribute attribute = WrappedAttribute.newBuilder()
-        .attributeKey(name).baseValue(baseValue).packet(packet).build();
+      Attribute attributeType = resolveAttributeType(originalName, name);
+      if (attributeType == null) {
+        IntaveLogger.logger().warn("Unable to resolve attribute " + name + " for player " + player.getName());
+        return;
+      }
+      Property attribute = new Property(attributeType, baseValue, new ArrayList<>());
       attributes.put(name, reduceNumberPrecision(attribute));
       attributeModifiers.put(name, new CopyOnWriteArrayList<>());
     } catch (Exception e) {
@@ -111,22 +113,22 @@ public final class AbilityMetadata {
     return attributeValue(key, x -> true);
   }
 
-  public double attributeValue(String key, Predicate<? super WrappedAttributeModifier> filter) {
+  public double attributeValue(String key, Predicate<? super PropertyModifier> filter) {
     key = keyTranslation(key);
-    WrappedAttribute attribute = attributes.get(key);
-    List<WrappedAttributeModifier> attributeModifiers = this.attributeModifiers.get(key);
+    Property attribute = attributes.get(key);
+    List<PropertyModifier> attributeModifiers = this.attributeModifiers.get(key);
     if (attribute == null || attributeModifiers == null) {
       return Double.NaN;
     }
-    double x = attribute.getBaseValue();
+    double x = attribute.getValue();
     double y = 0.0;
-    // ProtocolLib code pasted,
+    // Attribute phase application mirrors vanilla's modifier ordering.
     for(int phase = 0; phase < 3; ++phase) {
-      for (WrappedAttributeModifier modifier : attributeModifiers) {
+      for (PropertyModifier modifier : attributeModifiers) {
         if (!filter.test(modifier)) {
           continue;
         }
-        if (modifier.getOperation().getId() == phase) {
+        if (modifier.getOperation().ordinal() == phase) {
           switch (phase) {
             case 0:
               x += modifier.getAmount();
@@ -147,13 +149,13 @@ public final class AbilityMetadata {
     return y;
   }
 
-  public List<WrappedAttributeModifier> modifiersOf(WrappedAttribute attribute) {
-    return attributeModifiers.get(keyTranslation(attribute.getAttributeKey()));
+  public List<PropertyModifier> modifiersOf(Property attribute) {
+    return attributeModifiers.computeIfAbsent(attributeKey(attribute), key -> new CopyOnWriteArrayList<>());
   }
 
-  private WrappedAttribute reduceNumberPrecision(WrappedAttribute input) {
-    double baseValue = reducePrecision(input.getBaseValue());
-    return WrappedAttribute.newBuilder(input).baseValue(baseValue).build();
+  private Property reduceNumberPrecision(Property input) {
+    double baseValue = reducePrecision(input.getValue());
+    return new Property(input.getAttribute(), baseValue, new ArrayList<>(input.getModifiers()));
   }
 
   private static final double REDUCE_APPLIER = 1000d;
@@ -162,9 +164,34 @@ public final class AbilityMetadata {
     return Math.round(input * REDUCE_APPLIER) / REDUCE_APPLIER;
   }
 
-  public WrappedAttribute findAttribute(String key) {
+  public Property findAttribute(String key) {
     key = keyTranslation(key);
-    return attributes.get(key);
+    Property direct = attributes.get(key);
+    if (direct != null) {
+      return direct;
+    }
+    Attribute attributeType = resolveAttributeType(key, key);
+    if (attributeType == null) {
+      return null;
+    }
+    for (Property property : attributes.values()) {
+      if (property.getAttribute() == attributeType || property.getAttribute().equals(attributeType)) {
+        return property;
+      }
+    }
+    return null;
+  }
+
+  private Attribute resolveAttributeType(String originalKey, String translatedKey) {
+    Attribute attributeType = Attributes.getByName(translatedKey);
+    if (attributeType != null) {
+      return attributeType;
+    }
+    String remappedKey = ATTRIBUTE_FALLBACKS.get(originalKey);
+    if (remappedKey == null) {
+      remappedKey = ATTRIBUTE_FALLBACKS.get(translatedKey);
+    }
+    return remappedKey == null ? null : Attributes.getByName(remappedKey);
   }
 
   public List<? extends String> attributeKeys() {
@@ -173,6 +200,7 @@ public final class AbilityMetadata {
 
   private static final boolean KEY_WRAPPED;
   private static final Map<String, String> REMAP;
+  private static final Map<String, String> ATTRIBUTE_FALLBACKS;
 
   static {
     KEY_WRAPPED = MinecraftVersions.VER1_16_0.atOrAbove();
@@ -203,18 +231,44 @@ public final class AbilityMetadata {
       remap.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
     }
     REMAP = ImmutableMap.copyOf(remap);
+
+    Map<String, String> attributeFallbacks = new HashMap<>();
+    attributeFallbacks.put("generic.maxHealth", "generic.max_health");
+    attributeFallbacks.put("generic.followRange", "generic.follow_range");
+    attributeFallbacks.put("generic.knockbackResistance", "generic.knockback_resistance");
+    attributeFallbacks.put("generic.movementSpeed", "generic.movement_speed");
+    attributeFallbacks.put("generic.attackDamage", "generic.attack_damage");
+    attributeFallbacks.put("generic.attackSpeed", "generic.attack_speed");
+    attributeFallbacks.put("generic.armorToughness", "generic.armor_toughness");
+    attributeFallbacks.put("generic.attackKnockback", "generic.attack_knockback");
+    attributeFallbacks.put("horse.jumpStrength", "horse.jump_strength");
+    attributeFallbacks.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
+    attributeFallbacks.put("generic.scale", "generic.scale");
+    attributeFallbacks.put("player.sneaking_speed", "player.sneaking_speed");
+    ATTRIBUTE_FALLBACKS = ImmutableMap.copyOf(attributeFallbacks);
   }
 
   private String keyTranslation(String key) {
     return KEY_WRAPPED ? REMAP.getOrDefault(key, key) : key;
   }
 
+  private String attributeKey(Property attribute) {
+    for (Map.Entry<String, Property> entry : attributes.entrySet()) {
+      Property value = entry.getValue();
+      if (value == attribute || value.getAttribute() == attribute.getAttribute() || value.getAttribute().equals(attribute.getAttribute())) {
+        return entry.getKey();
+      }
+    }
+    return keyTranslation(attribute.getKey());
+  }
+
   public void modifyBaseValue(String key, double baseValue) {
     key = keyTranslation(key);
-    WrappedAttribute attribute = findAttribute(key);
+    Property attribute = findAttribute(key);
     if (attribute != null) {
-      attributes.put(key, WrappedAttribute.newBuilder(attribute).baseValue(baseValue).build());
-      List<WrappedAttributeModifier> modifiers = modifiersOf(attribute);
+      attribute.setValue(reducePrecision(baseValue));
+      attributes.put(key, attribute);
+      List<PropertyModifier> modifiers = modifiersOf(attribute);
       attributeModifiers.remove(key);
       attributeModifiers.put(key, new ArrayList<>(modifiers));
     }

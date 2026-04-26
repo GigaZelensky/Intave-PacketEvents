@@ -1,6 +1,8 @@
 package de.jpx3.intave.module.mitigate;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.connect.sibyl.SibylMessageTransmitter;
@@ -10,7 +12,6 @@ import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.PacketId;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
-import de.jpx3.intave.packet.reader.EntityVelocityReader;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.share.Rotation;
 import de.jpx3.intave.user.MessageChannel;
@@ -103,7 +104,7 @@ public final class CombatMitigator extends Module {
     packetsIn = PacketId.Client.ARM_ANIMATION
   )
   public void onArmAnimationPacket(
-    User user, PacketEvent event
+    User user, ProtocolPacketEvent event
   ) {
     user.meta().punishment().lastSwing = System.currentTimeMillis();
   }
@@ -112,10 +113,10 @@ public final class CombatMitigator extends Module {
     packetsOut = PacketId.Server.ENTITY_VELOCITY
   )
   public void onVelocityPacket(
-    User user, PacketEvent event, EntityVelocityReader reader
+    User user, ProtocolPacketEvent event, WrapperPlayServerEntityVelocity packet
   ) {
     int entityId = user.player().getEntityId();
-    if (reader.entityId() != entityId) {
+    if (packet.getEntityId() != entityId) {
       return;
     }
     for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
@@ -141,8 +142,9 @@ public final class CombatMitigator extends Module {
         continue;
       }
 
-      double motionX = reader.motionX();
-      double motionZ = reader.motionZ();
+      Vector3d velocity = packet.getVelocity();
+      double motionX = velocity.getX();
+      double motionZ = velocity.getZ();
 
       double ratio = 1;
       int reduceTicks = ThreadLocalRandom.current().nextInt(0, 3);
@@ -152,8 +154,8 @@ public final class CombatMitigator extends Module {
       for (int i = 0; i < reduceTicks; i++) {
         ratio *= 0.6;
       }
-      reader.setMotionX(motionX * ratio);
-      reader.setMotionZ(motionZ * ratio);
+      packet.setVelocity(new Vector3d(motionX * ratio, velocity.getY(), motionZ * ratio));
+      event.markForReEncode(true);
       return;
     }
 
@@ -162,8 +164,9 @@ public final class CombatMitigator extends Module {
       punishment.nerferOfType(RECEIVE_MORE_KNOCKBACK).active() &&
       punishment.velocityIncreaseTokens > 0
     ) {
-      double motionX = reader.motionX();
-      double motionZ = reader.motionZ();
+      Vector3d velocity = packet.getVelocity();
+      double motionX = velocity.getX();
+      double motionZ = velocity.getZ();
 
       double horizontal = Math.sqrt(motionX * motionX + motionZ * motionZ);
       double velocityAdd = polyEval(MathHelper.minmax(0, horizontal, 1));
@@ -172,8 +175,8 @@ public final class CombatMitigator extends Module {
       velocityAdd += ThreadLocalRandom.current().nextGaussian() * 0.333;
 
       double factor = (MathHelper.minmax(0, velocityAdd,0.6) + 1);
-      reader.setMotionX(motionX * factor);
-      reader.setMotionZ(motionZ * factor);
+      packet.setVelocity(new Vector3d(motionX * factor, velocity.getY(), motionZ * factor));
+      event.markForReEncode(true);
       punishment.velocityIncreaseTokens--;
     }
 
@@ -337,7 +340,7 @@ public final class CombatMitigator extends Module {
 
     String message = ChatColor.RED + "[CM] Applied " + attackNerfer.name() + " combat nerfer on " + player.getName() + " (dmc" + checkId + ") " + durationText;
 
-    if (IntaveControl.DEBUG_HEURISTICS && !plugin.sibyl().isAuthenticated(player)) {
+    if (IntaveControl.DEBUG_HEURISTICS) {
       player.sendMessage(message);
     }
 
@@ -353,10 +356,8 @@ public final class CombatMitigator extends Module {
       }
     }
 
-    for (Player authenticatedPlayer : MessageChannelSubscriptions.sibylReceivers()) {
-      if (plugin.sibyl().isAuthenticated(authenticatedPlayer)) {
-        SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
-      }
+    for (Player authenticatedPlayer : MessageChannelSubscriptions.sibylReceivers()/*Bukkit.getOnlinePlayers()*/) {
+      SibylMessageTransmitter.sendMessage(authenticatedPlayer, message);
     }
   }
 }

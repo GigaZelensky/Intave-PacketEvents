@@ -1,6 +1,7 @@
 package de.jpx3.intave.check.movement.timer;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.PacketEvents;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.annotate.DispatchTarget;
 import de.jpx3.intave.check.CheckStatistics;
@@ -12,12 +13,12 @@ import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.feedback.FeedbackOptions;
 import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketEventBuffer;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.tracker.player.AbilityTracker;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationContext;
-import de.jpx3.intave.packet.PacketSender;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.*;
@@ -72,7 +73,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
       LOGIN
     }
   )
-  public void receiveLogin(PacketEvent event) {
+  public void receiveLogin(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player == null) {
       return;
@@ -80,8 +81,8 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
     User user = userOf(player);
     PlayerTimeMeta checkMeta = metaOf(user);
     playerJoinTimeCache.put(player.getUniqueId(), System.nanoTime());
-    PacketSender.sendServerPacketWithoutEvent(player, event.getPacket());
-    user.tickFeedback(() -> checkMeta.gameJoinReceived = true);
+    PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, PacketEventBuffer.cloneFullBuffer(event));
+    user.tickFeedback(() -> checkMeta.gameJoinReceived = true, FeedbackOptions.SELF_SYNCHRONIZATION);
     event.setCancelled(true);
   }
 
@@ -102,7 +103,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
   }
 
   @DispatchTarget
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player == null) {
       return;

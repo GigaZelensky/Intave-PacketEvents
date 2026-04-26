@@ -64,17 +64,7 @@ public abstract class CommandStage {
     String leftCommand = command.length > 1 ? command[1] : "";
     if (link.forwardClass() != null) {
       String permission = link.permission();
-      if ("sibyl".equalsIgnoreCase(permission)) {
-        if (sender instanceof Player) {
-          if (!IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender)) {
-            showAllCommands(sender);
-            return;
-          }
-        } else {
-          showAllCommands(sender);
-          return;
-        }
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         sender.sendMessage(NO_PERMISSION_MESSAGE);
         return;
       }
@@ -97,9 +87,7 @@ public abstract class CommandStage {
     String leftCommand = command.length > 1 ? command[1] : "";
     if (link.forwardClass() != null) {
       String permission = link.permission();
-      if ("sibyl".equals(permission) && !(sender instanceof Player && IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender))) {
-        return null;
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         return null;
       }
       CommandStage commandStage = globalInstances.get(link.forwardClass());
@@ -111,7 +99,7 @@ public abstract class CommandStage {
 
   private List<String> subcommandCompletions(CommandSender player) {
     return commandExecutors.stream()
-      .filter(subCommand -> BukkitPermissionCheck.permissionCheck(player, subCommand.permission()))
+      .filter(subCommand -> "none".equals(subCommand.permission()) || BukkitPermissionCheck.permissionCheck(player, subCommand.permission()))
       .filter(subCommand -> !subCommand.hideInHelp())
       .map(subCommand -> subCommand.selectors()[0])
       .collect(Collectors.toList());
@@ -126,9 +114,7 @@ public abstract class CommandStage {
         continue;
       }
       String permission = commandExecutor.permission();
-      if ("sibyl".equals(permission) && !(sender instanceof Player && IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender))) {
-        continue;
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         continue;
       }
       messages.add(commandExecutor.selectors()[0] + ": " + commandExecutor.description());
@@ -172,9 +158,7 @@ public abstract class CommandStage {
         continue;
       }
       String permission = commandExecutor.permission();
-      if ("sibyl".equals(permission) && !(sender instanceof Player && IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender))) {
-        continue;
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         continue;
       }
       availableSelectors.add(commandExecutor.selectors()[0]);
@@ -210,9 +194,7 @@ public abstract class CommandStage {
     Set<String> haystacks = new HashSet<>();
     for (CommandExecutor commandExecutor : commandExecutors) {
       String permission = commandExecutor.permission();
-      if ("sibyl".equals(permission) && !(sender instanceof Player && IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender))) {
-        continue;
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         continue;
       }
       Collections.addAll(haystacks, commandExecutor.selectors());
@@ -223,9 +205,7 @@ public abstract class CommandStage {
   private CommandExecutor subcommandBySelector(CommandSender sender, String search) {
     for (CommandExecutor subCommand : commandExecutors) {
       String permission = subCommand.permission();
-      if (sender instanceof Player && "sibyl".equals(permission) && !IntavePlugin.singletonInstance().sibyl().isAuthenticated((Player) sender)) {
-        continue;
-      } else if (sender instanceof Player && !"none".equals(permission) && !"sibyl".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
+      if (sender instanceof Player && !"none".equals(permission) && !BukkitPermissionCheck.permissionCheck(sender, permission)) {
         continue;
       }
       for (String selector : subCommand.selectors()) {

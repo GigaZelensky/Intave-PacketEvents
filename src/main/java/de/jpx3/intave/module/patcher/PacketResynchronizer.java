@@ -1,13 +1,13 @@
 package de.jpx3.intave.module.patcher;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.diagnostic.PacketSynchronizations;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
+import de.jpx3.intave.module.linker.packet.PacketEventBuffer;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
-import de.jpx3.intave.packet.PacketSender;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -25,11 +25,14 @@ public final class PacketResynchronizer extends Module {
       REMOVE_ENTITY_EFFECT, RESPAWN, SPAWN_ENTITY, SPAWN_ENTITY_LIVING, /*WINDOW_ITEMS,*/ WORLD_BORDER
     }
   )
-  public void catchDesynchronized(PacketEvent event) {
+  public void catchDesynchronized(ProtocolPacketEvent event) {
+    Player player = event.getPlayer();
+    if (de.jpx3.intave.user.UserRepository.userOf(player).meta().protocol().outdatedClient()) {
+      return;
+    }
     if (isInInvalidThread()) {
       event.setCancelled(true);
-      Player player = event.getPlayer();
-      PacketContainer packet = event.getPacket();
+      Object packet = PacketEventBuffer.cloneFullBuffer(event);
       Synchronizer.synchronize(() -> sendPacket(player, packet));
       PacketSynchronizations.enterResynchronization(event.getPacketType());
     }
@@ -41,7 +44,9 @@ public final class PacketResynchronizer extends Module {
     return cache.computeIfAbsent(Thread.currentThread().getName(), s -> s.startsWith("Netty "));
   }
 
-  private void sendPacket(Player player, PacketContainer packet) {
-    PacketSender.sendServerPacket(player, packet);
+  private void sendPacket(Player player, Object packet) {
+    if (packet != null) {
+      PacketEvents.getAPI().getPlayerManager().sendPacket(player, packet);
+    }
   }
 }
