@@ -38,8 +38,8 @@ import java.util.function.IntFunction;
 import static de.jpx3.intave.IntaveControl.IGNORE_CHUNK_PACKETS;
 
 public final class PacketSubscriptionLinker extends Module {
-  private static boolean IGNORE_CHAT_PACKETS = false;
-  private static boolean IGNORE_SCOREBOARD_TEAM_PACKETS = false;
+  private static volatile boolean IGNORE_CHAT_PACKETS = false;
+  private static volatile boolean IGNORE_SCOREBOARD_TEAM_PACKETS = false;
 
   private final IntavePlugin plugin;
   private final List<FilteringPacketAdapter> packetListeners = new ArrayList<>();
@@ -50,8 +50,12 @@ public final class PacketSubscriptionLinker extends Module {
 
   @Override
   public void enable() {
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     IGNORE_CHAT_PACKETS = IGNORE_SCOREBOARD_TEAM_PACKETS =
-      plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", false);
+      plugin.settings().getBoolean("compatibility.ignore-scoreboard-packets", false);
   }
 
   @Override

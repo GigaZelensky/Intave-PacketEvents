@@ -36,12 +36,10 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Server.RESPAWN;
 @Deprecated
 public final class Balance extends MetaCheckPart<Timer, Balance.BalanceMeta> {
   private final CheckViolationLevelDecrementer decrementer;
-  private final boolean highToleranceMode;
 
   public Balance(Timer parentCheck) {
     super(parentCheck, BalanceMeta.class);
     this.decrementer = parentCheck.decrementer();
-    this.highToleranceMode = parentCheck().highToleranceMode();
   }
 
   @PacketSubscription(
@@ -70,7 +68,7 @@ public final class Balance extends MetaCheckPart<Timer, Balance.BalanceMeta> {
     timerData.lastFlyingPacket = System.nanoTime();
     timerData.timerBalance += TimeUnit.MILLISECONDS.toNanos(50) - delta;
     int allowedLagInMilliseconds = trustFactorSetting("buffer-size", player);
-    if (highToleranceMode || meta.abilities().probablyFlying()) {
+    if (parentCheck().highToleranceMode() || meta.abilities().probablyFlying()) {
       // disable any limits for high tolerance mode and flying
       allowedLagInMilliseconds = Integer.MAX_VALUE;
     }

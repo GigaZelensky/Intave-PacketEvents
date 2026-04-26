@@ -40,11 +40,16 @@ public final class FeedbackSender extends Module {
   private static final long bootTime = System.currentTimeMillis();
   public static IdGeneratorMode activeGenerator = IdGeneratorMode.highestCompatibility();
 
-  private boolean dumpFeedback;
-  private boolean bundlingDisabled;
+  private volatile boolean dumpFeedback;
+  private volatile boolean bundlingDisabled;
 
   @Override
   public void enable() {
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
+    activeGenerator = IdGeneratorMode.highestCompatibility();
     dumpFeedback = plugin.settings().getBoolean("logging.feedback-dump", false);
     bundlingDisabled = plugin.settings().getBoolean("check.physics.no-bundling", false);
     boolean disabledTransactionObfuscation = plugin.settings().getBoolean("compatibility.no-transaction-obfuscation", false);

@@ -19,18 +19,21 @@ public final class ReconDelayLimiter extends Module {
   private final Map<UUID, Long> lastKicked = new ConcurrentHashMap<>();
   private final Map<InetAddress, Long> lastKickedIp = new ConcurrentHashMap<>();
 
-  private long delay;
-  private boolean refresh;
-  private String rawMessage;
+  private volatile long delay;
+  private volatile boolean refresh;
+  private volatile String rawMessage;
 
   public void enable() {
+    reloadConfiguration();
+    plugin.eventLinker().registerEventsIn(this);
+  }
+
+  public void reloadConfiguration() {
     YamlConfiguration config = plugin.settings();
 
     delay = config.getInt("rejoin.delay") * 50L;
     refresh = config.getBoolean("rejoin.refresh");
     rawMessage = config.getString("rejoin.message");
-
-    plugin.eventLinker().registerEventsIn(this);
   }
 
   @BukkitEventSubscription

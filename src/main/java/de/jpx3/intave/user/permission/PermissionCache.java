@@ -6,4 +6,6 @@ public interface PermissionCache {
   boolean cached(String permission);
 
   void save(String permission, boolean access);
+
+  void clear();
 }

@@ -93,19 +93,26 @@ import static de.jpx3.intave.user.meta.ProtocolMetadata.VER_1_9;
 
 public final class MovementDispatcher extends Module {
   private static final boolean ELYTRA_SUPPORTED = MinecraftVersions.VER1_9_0.atOrAbove();
-  private TeleportApplyEnforcer teleportApplyEnforcer;
-  private Physics physicsCheck;
-  private InteractionRaytrace interactionRaytraceCheck;
-  private Timer timerCheck;
+  private volatile TeleportApplyEnforcer teleportApplyEnforcer;
+  private volatile Physics physicsCheck;
+  private volatile InteractionRaytrace interactionRaytraceCheck;
+  private volatile Timer timerCheck;
 
   @Override
   public void enable() {
+    reloadConfiguration();
+    this.teleportApplyEnforcer = new TeleportApplyEnforcer();
+    this.teleportApplyEnforcer.setup();
+  }
+
+  public void reloadConfiguration() {
     CheckService checks = plugin.checks();
     this.physicsCheck = checks.searchCheck(Physics.class);
     this.interactionRaytraceCheck = checks.searchCheck(InteractionRaytrace.class);
     this.timerCheck = checks.searchCheck(Timer.class);
-    this.teleportApplyEnforcer = new TeleportApplyEnforcer();
-    this.teleportApplyEnforcer.setup();
+    if (teleportApplyEnforcer != null) {
+      teleportApplyEnforcer.reloadConfiguration();
+    }
   }
 
   @BukkitEventSubscription(

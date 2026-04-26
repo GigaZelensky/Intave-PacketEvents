@@ -53,13 +53,16 @@ public final class TeleportApplyEnforcer implements PacketEventSubscriber {
   private static final boolean NEW_TELEPORTATION = MinecraftVersions.VER1_9_0.atOrAbove();
   private boolean teleportPacketDecodeWarningShown;
 
-  private boolean teleportFeedbackSyncEnforcement = true;
+  private volatile boolean teleportFeedbackSyncEnforcement = true;
 
   public void setup() {
+    Modules.linker().packetEvents().linkSubscriptionsIn(this);
+    reloadConfiguration();
+  }
+
+  public void reloadConfiguration() {
     YamlConfiguration settings = IntavePlugin.singletonInstance().settings();
     String path = "compatibility.position-feedback-sync-enforcement";
-
-    Modules.linker().packetEvents().linkSubscriptionsIn(this);
 
     boolean defaultSetting = true;
 

@@ -22,6 +22,15 @@ public final class Filters extends Module {
     linkEnabled();
   }
 
+  public void reloadConfiguration() {
+    for (Filter filter : filters) {
+      Modules.linker().bukkitEvents().unregisterEventsIn(filter);
+      Modules.linker().packetEvents().removeSubscriptionsOf(filter);
+      filter.reloadConfiguration();
+    }
+    linkEnabled();
+  }
+
   private void setup(Class<? extends Filter> filterClass) {
     try {
       Constructor<? extends Filter> constructor = filterClass.getConstructor(IntavePlugin.class);

@@ -13,6 +13,10 @@ public class ConfigurationService {
     configuration = loader.fetchConfiguration();
   }
 
+  public void reload() {
+    init();
+  }
+
   public YamlConfiguration configuration() {
     return configuration;
   }

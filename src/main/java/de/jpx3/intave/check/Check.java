@@ -50,7 +50,7 @@ public abstract class Check implements EventProcessor {
   private final Map<TrustFactor, CheckStatistics> perTrustFactorStatistics = new EnumMap<>(TrustFactor.class);
   private final List<CheckPart<?>> checkParts = new ArrayList<>();
   private final CheckConfiguration checkConfiguration = new CheckConfiguration(this);
-  private final boolean enabled;
+  private volatile boolean enabled;
   private MitigationStrategy mitigationStrategy;
   private MitigationStrategy defaultMitigationStrategy = MitigationStrategy.NOT_SUPPORTED;
 
@@ -58,9 +58,12 @@ public abstract class Check implements EventProcessor {
     this.plugin = IntavePlugin.singletonInstance();
     this.checkName = checkName;
     this.configurationKey = configurationKey;
-    this.enterConfiguration();
-    this.enabled = checkConfiguration.settings().checkEnabled();
-    this.mitigationStrategy = checkConfiguration.settings().mitigationStrategy();
+    enterConfiguration();
+  }
+
+  public final void reloadConfiguration() {
+    enterConfiguration();
+    onConfigurationReload();
   }
 
   private void enterConfiguration() {
@@ -69,14 +72,19 @@ public abstract class Check implements EventProcessor {
     ConfigurationSection checkSection = configuration.getConfigurationSection(checkSectionPath);
     if (checkSection == null) {
       checkConfiguration.setSettings(new HashMap<>());
-      return;
+    } else {
+      Map<String, Object> mappings = new HashMap<>();
+      Set<String> keys = checkSection.getKeys(true);
+      for (String key : keys) {
+        mappings.putIfAbsent(key, checkSection.get(key));
+      }
+      checkConfiguration.setSettings(mappings);
     }
-    Map<String, Object> mappings = new HashMap<>();
-    Set<String> keys = checkSection.getKeys(true);
-    for (String key : keys) {
-      mappings.putIfAbsent(key, checkSection.get(key));
-    }
-    checkConfiguration.setSettings(mappings);
+    this.enabled = checkConfiguration.settings().checkEnabled();
+    this.mitigationStrategy = checkConfiguration.settings().mitigationStrategy();
+  }
+
+  protected void onConfigurationReload() {
   }
 
   /**

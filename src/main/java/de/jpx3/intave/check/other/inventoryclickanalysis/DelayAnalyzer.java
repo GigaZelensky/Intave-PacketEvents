@@ -33,11 +33,9 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
   private static final boolean MODERN_WINDOW_CLICK = PacketEventsAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_9_0);
 
   private final IntavePlugin plugin;
-  private final boolean highToleranceMode;
 
-  public DelayAnalyzer(InventoryClickAnalysis parentCheck, boolean highToleranceMode) {
+  public DelayAnalyzer(InventoryClickAnalysis parentCheck) {
     super(parentCheck, ClickDelayMeta.class);
-    this.highToleranceMode = highToleranceMode;
     this.plugin = IntavePlugin.singletonInstance();
   }
 
@@ -106,6 +104,7 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
     double distance = distanceBetween(slot, meta.lastClickedSlot);
     double speedAttr = distance / time;
 
+    boolean highToleranceMode = parentCheck().highToleranceMode();
     boolean flag = speedAttr > (highToleranceMode ? 60 : 30);
     boolean flag2 = speedAttr > (highToleranceMode ? 150 : 100);
 

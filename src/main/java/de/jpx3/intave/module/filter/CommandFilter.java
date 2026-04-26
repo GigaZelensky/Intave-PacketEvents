@@ -17,23 +17,31 @@ import de.jpx3.intave.user.permission.BukkitPermissionCheck;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.CHAT_IN;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.TAB_COMPLETE_IN;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.TAB_COMPLETE_OUT;
 
 public final class CommandFilter extends Filter {
-  private final boolean separateEnable;
-  private final boolean disabled;
-  private final Map<String, String> redirects = new HashMap<>();
+  private volatile boolean separateEnable;
+  private volatile boolean disabled;
+  private final Map<String, String> redirects = new ConcurrentHashMap<>();
 
   public CommandFilter(IntavePlugin plugin) {
     super("command");
+    reloadConfiguration();
+  }
+
+  @Override
+  public void reloadConfiguration() {
+    super.reloadConfiguration();
+    IntavePlugin plugin = IntavePlugin.singletonInstance();
     separateEnable = plugin.settings().getBoolean("command.hide", true);
     disabled = plugin.settings().getBoolean("command.fix-tab-kicks", false);
+    redirects.clear();
 
     ConfigurationSection reroute = plugin.settings().getConfigurationSection("command.reroute");
     if (reroute != null) {
