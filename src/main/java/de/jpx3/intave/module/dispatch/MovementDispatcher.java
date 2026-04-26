@@ -985,6 +985,10 @@ public final class MovementDispatcher extends Module {
       input.setShift(packet.isShift());
       input.setSprint(packet.isSprint());
       movementData.input = input;
+      if (MinecraftVersions.VER1_21_6.atOrAbove()) {
+        // 1.21.6+ moved crouch state from entity actions to player input.
+        movementData.sneaking = input.shift();
+      }
     } else {
       WrapperPlayClientSteerVehicle packet = new WrapperPlayClientSteerVehicle((PacketReceiveEvent) event);
       int strafeKey = (int) (packet.getSideways() / 0.98f);
