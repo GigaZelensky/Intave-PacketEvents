@@ -114,10 +114,17 @@ public final class AbilityMetadata {
   }
 
   public double attributeValue(String key, Predicate<? super PropertyModifier> filter) {
-    return attributeValue(key, filter, null);
+    return attributeValue(key, filter, Collections.emptyList());
   }
 
   public double attributeValue(String key, Predicate<? super PropertyModifier> filter, PropertyModifier virtualModifier) {
+    if (virtualModifier == null) {
+      return attributeValue(key, filter, Collections.emptyList());
+    }
+    return attributeValue(key, filter, Collections.singletonList(virtualModifier));
+  }
+
+  public double attributeValue(String key, Predicate<? super PropertyModifier> filter, Collection<PropertyModifier> virtualModifiers) {
     key = keyTranslation(key);
     Property attribute = attributes.get(key);
     List<PropertyModifier> attributeModifiers = this.attributeModifiers.get(key);
@@ -146,17 +153,19 @@ public final class AbilityMetadata {
           }
         }
       }
-      if (virtualModifier != null && virtualModifier.getOperation().ordinal() == phase) {
-        switch (phase) {
-          case 0:
-            x += virtualModifier.getAmount();
-            break;
-          case 1:
-            y += x * virtualModifier.getAmount();
-            break;
-          case 2:
-            y *= 1.0 + virtualModifier.getAmount();
-            break;
+      for (PropertyModifier virtualModifier : virtualModifiers) {
+        if (virtualModifier != null && virtualModifier.getOperation().ordinal() == phase) {
+          switch (phase) {
+            case 0:
+              x += virtualModifier.getAmount();
+              break;
+            case 1:
+              y += x * virtualModifier.getAmount();
+              break;
+            case 2:
+              y *= 1.0 + virtualModifier.getAmount();
+              break;
+          }
         }
       }
       if (phase == 0) {

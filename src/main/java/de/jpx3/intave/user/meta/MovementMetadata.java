@@ -59,6 +59,10 @@ public final class MovementMetadata implements SimulationEnvironment {
   public static final ResourceLocation SPRINTING_MODIFIER_NAME = new ResourceLocation("minecraft:sprinting");
   public static final UUID POWDER_SNOW_MODIFIER_UUID = UUID.fromString("1eaf83ff-7207-4596-b37a-d7a07b3ec4ce");
   public static final ResourceLocation POWDER_SNOW_MODIFIER_NAME = new ResourceLocation("minecraft:powder_snow");
+  public static final UUID SPEED_EFFECT_MODIFIER_UUID = UUID.fromString("91AEAA56-376B-4498-935B-2F7F68070635");
+  public static final ResourceLocation SPEED_EFFECT_MODIFIER_NAME = new ResourceLocation("minecraft:effect.speed");
+  public static final UUID SLOWNESS_EFFECT_MODIFIER_UUID = UUID.fromString("7107DE5E-7CE8-4030-940E-514C1F160890");
+  public static final ResourceLocation SLOWNESS_EFFECT_MODIFIER_NAME = new ResourceLocation("minecraft:effect.slowness");
   public static final PropertyModifier SPRINTING_MODIFIER = new PropertyModifier(
     SPRINTING_MODIFIER_NAME,
     SPRINTING_MODIFIER_UUID,
@@ -833,7 +837,7 @@ public final class MovementMetadata implements SimulationEnvironment {
     aiMoveSpeed = (float) abilityData.attributeValue(
       "generic.movementSpeed",
       this::appliesToMovementPrediction,
-      powderSnowModifierForPrediction()
+      movementSpeedModifiersForPrediction()
     );
     boolean factorAdditionRequired = meta.protocol().protocolVersion() >= 762 ? sprinting : lastSprinting;
     if (factorAdditionRequired) {
@@ -1051,8 +1055,79 @@ public final class MovementMetadata implements SimulationEnvironment {
       || text.toLowerCase(Locale.ROOT).endsWith(":powder_snow");
   }
 
+  public static boolean isSpeedEffectModifier(PropertyModifier modifier) {
+    if (modifier == null) {
+      return false;
+    }
+    if (SPEED_EFFECT_MODIFIER_UUID.equals(modifier.getUUID())) {
+      return true;
+    }
+    return modifierNameMatches(
+      modifier,
+      SPEED_EFFECT_MODIFIER_UUID,
+      "minecraft:effect.speed",
+      "effect.speed",
+      "minecraft:speed",
+      "speed"
+    );
+  }
+
+  public static boolean isSlownessEffectModifier(PropertyModifier modifier) {
+    if (modifier == null) {
+      return false;
+    }
+    if (SLOWNESS_EFFECT_MODIFIER_UUID.equals(modifier.getUUID())) {
+      return true;
+    }
+    return modifierNameMatches(
+      modifier,
+      SLOWNESS_EFFECT_MODIFIER_UUID,
+      "minecraft:effect.slowness",
+      "effect.slowness",
+      "minecraft:slowness",
+      "slowness"
+    );
+  }
+
+  private static boolean modifierNameMatches(PropertyModifier modifier, UUID uuid, String... names) {
+    ResourceLocation name = modifier.getName();
+    if (name == null) {
+      return false;
+    }
+    String text = name.toString().toLowerCase(Locale.ROOT);
+    if (uuid.toString().equalsIgnoreCase(text)) {
+      return true;
+    }
+    for (String candidate : names) {
+      if (candidate.equalsIgnoreCase(text)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private boolean appliesToMovementPrediction(PropertyModifier modifier) {
-    return !isSprintingModifier(modifier) && !isPowderSnowModifier(modifier);
+    return !isSprintingModifier(modifier)
+      && !isPowderSnowModifier(modifier)
+      && !isSpeedEffectModifier(modifier)
+      && !isSlownessEffectModifier(modifier);
+  }
+
+  private Collection<PropertyModifier> movementSpeedModifiersForPrediction() {
+    List<PropertyModifier> modifiers = new ArrayList<>(3);
+    PropertyModifier powderSnowModifier = powderSnowModifierForPrediction();
+    if (powderSnowModifier != null) {
+      modifiers.add(powderSnowModifier);
+    }
+    PropertyModifier speedModifier = speedEffectModifierForPrediction();
+    if (speedModifier != null) {
+      modifiers.add(speedModifier);
+    }
+    PropertyModifier slownessModifier = slownessEffectModifierForPrediction();
+    if (slownessModifier != null) {
+      modifiers.add(slownessModifier);
+    }
+    return modifiers;
   }
 
   private PropertyModifier powderSnowModifierForPrediction() {
@@ -1068,6 +1143,38 @@ public final class MovementMetadata implements SimulationEnvironment {
       speedReduction,
       PropertyModifier.Operation.ADDITION
     );
+  }
+
+  private PropertyModifier speedEffectModifierForPrediction() {
+    EffectMetadata potionData = user.meta().potions();
+    int amplifier = potionData.potionEffectSpeedAmplifier();
+    if (!effectActive(amplifier, potionData.potionEffectSpeedDuration)) {
+      return null;
+    }
+    return new PropertyModifier(
+      SPEED_EFFECT_MODIFIER_NAME,
+      SPEED_EFFECT_MODIFIER_UUID,
+      (double) 0.2F * amplifier,
+      PropertyModifier.Operation.MULTIPLY_TOTAL
+    );
+  }
+
+  private PropertyModifier slownessEffectModifierForPrediction() {
+    EffectMetadata potionData = user.meta().potions();
+    int amplifier = potionData.potionEffectSlownessAmplifier();
+    if (!effectActive(amplifier, potionData.potionEffectSlownessDuration)) {
+      return null;
+    }
+    return new PropertyModifier(
+      SLOWNESS_EFFECT_MODIFIER_NAME,
+      SLOWNESS_EFFECT_MODIFIER_UUID,
+      (double) -0.15F * amplifier,
+      PropertyModifier.Operation.MULTIPLY_TOTAL
+    );
+  }
+
+  private boolean effectActive(int amplifier, int duration) {
+    return amplifier > 0 && duration != 0;
   }
 
   private boolean powderSnowModifierApplies() {
