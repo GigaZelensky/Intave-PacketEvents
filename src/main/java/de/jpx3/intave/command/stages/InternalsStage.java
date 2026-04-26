@@ -9,6 +9,7 @@ import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.storage.LongTermViolationStorage;
+import de.jpx3.intave.util.MessageColors;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -103,7 +104,7 @@ public final class InternalsStage extends CommandStage {
     String message = Arrays.stream(messageParts).map(s -> s + " ").collect(Collectors.joining()).trim();
     for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
       if (!onlinePlayer.equals(target) && onlinePlayer.getAddress().getAddress().equals(target.getAddress().getAddress())) {
-        String parsedMessage = ChatColor.translateAlternateColorCodes('&', message);
+        String parsedMessage = MessageColors.translate(message);
         Synchronizer.synchronize(() -> onlinePlayer.kickPlayer(parsedMessage));
       }
     }

@@ -382,12 +382,14 @@ public final class ViolationProcessor extends Module {
 
   private void synchronizedMessage(Player player, String message, Map<String, String> granularInfos) {
     if (Bukkit.isPrimaryThread()) {
-      // Send spigot message with hoverable text
-      TextComponent textComponent = new TextComponent(message);
+      BaseComponent[] components = TextComponent.fromLegacyText(message);
       if (!granularInfos.isEmpty()) {
-        textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, formatGranularInfos(granularInfos)));
+        HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT, formatGranularInfos(granularInfos));
+        for (BaseComponent component : components) {
+          component.setHoverEvent(hoverEvent);
+        }
       }
-      player.spigot().sendMessage(textComponent);
+      player.spigot().sendMessage(components);
     } else {
       Synchronizer.synchronize(() -> synchronizedMessage(player, message, granularInfos));
     }
