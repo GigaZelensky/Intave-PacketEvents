@@ -19,6 +19,7 @@ import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.block.fluid.Fluids;
 import de.jpx3.intave.block.shape.BlockShape;
 import de.jpx3.intave.block.type.BlockTypeAccess;
+import de.jpx3.intave.block.type.MaterialSearch;
 import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckConfiguration.CheckSettings;
@@ -55,6 +56,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
@@ -71,6 +73,8 @@ import static de.jpx3.intave.share.ClientMath.floor;
 import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.ENDER_PEARL;
 
 public final class Physics extends Check {
+  private static final Material SLIME_BLOCK = MaterialSearch.materialThatIsNamed("SLIME_BLOCK");
+  private static final double SLIME_BOUNCE_LANDING_DELTA = 0.08D;
   private static final double VL_DECREMENT_PER_VALID_MOVE = 0.08;
   private static final double VELOCITY_VL_THRESHOLD = 6;
 
@@ -241,6 +245,17 @@ public final class Physics extends Check {
     double motionZ = movementData.endMotionZOverride ? movementData.endMotionZOverrideValue : movementData.motionZ();
     if (hasMovement) {
       Simulator simulator = movementData.simulator();
+      double baseMotionXBeforeMove = movementData.baseMotionX;
+      double baseMotionYBeforeMove = movementData.baseMotionY;
+      double baseMotionZBeforeMove = movementData.baseMotionZ;
+      boolean slimeBounceLanding = shouldCorrectSlimeBounceLanding(
+        user,
+        movementData,
+        baseMotionXBeforeMove,
+        baseMotionYBeforeMove,
+        baseMotionZBeforeMove,
+        movementData.motionY()
+      );
       if (movementData.pastVelocity == 0) {
         if (movementData.physicsJumped && movementData.lastVelocityApplicableForJumpDenial()) {
           movementData.physicsJumpedOverrideVL++;
@@ -258,6 +273,18 @@ public final class Physics extends Check {
         movementData.positionX, movementData.positionY, movementData.positionZ,
         motionX, motionY, motionZ
       );
+      if (slimeBounceLanding) {
+        Motion bouncedMotion = slimeBounceNextMotion(
+          user,
+          movementData,
+          baseMotionXBeforeMove,
+          baseMotionYBeforeMove,
+          baseMotionZBeforeMove
+        );
+        if (bouncedMotion.motionY() > movementData.baseMotionY + 0.01D) {
+          movementData.setBaseMotion(bouncedMotion);
+        }
+      }
     }
     movementData.endMotionXOverride = false;
     movementData.endMotionYOverride = false;
@@ -289,6 +316,201 @@ public final class Physics extends Check {
       motionX, motionY, motionZ
     );
     movementData.onGround = colliderResult.onGround();
+  }
+
+  @DispatchTarget
+  public void advanceSlimeBounceOnFlyingPacket(User user) {
+    MovementMetadata movementData = user.meta().movement();
+    if (shouldAdvanceSlimeBounceOnFlyingPacket(user, movementData)) {
+      movementData.setBaseMotion(slimeBounceNextMotion(
+        user,
+        movementData,
+        movementData.baseMotionX,
+        movementData.baseMotionY,
+        movementData.baseMotionZ
+      ));
+    } else if (shouldDampenSlimeFlyingPacket(user, movementData)) {
+      movementData.setBaseMotion(slimeFlyingPacketNextMotion(user, movementData));
+    }
+  }
+
+  private Motion slimeBounceNextMotion(
+    User user,
+    MovementMetadata movementData,
+    double motionX,
+    double motionY,
+    double motionZ
+  ) {
+    motionY = -motionY;
+    if (Math.abs(motionY) < 0.1D) {
+      double horizontalSlowdown = 0.4D + Math.abs(motionY) * 0.2D;
+      motionX *= horizontalSlowdown;
+      motionZ *= horizontalSlowdown;
+    }
+
+    float slipperiness = movementData.lastOnGround()
+      ? MovementCharacteristics.currentSlipperiness(
+        user,
+        user.player().getWorld(),
+        floor(movementData.verifiedPositionX),
+        floor(movementData.verifiedPositionY - movementData.frictionPosSubtraction()),
+        floor(movementData.verifiedPositionZ)
+      )
+      : 0.91F;
+    double gravity = movementData.gravity() == 0.0D ? 0.08D : movementData.gravity();
+    motionX *= slipperiness;
+    motionY = (motionY - gravity) * 0.98F;
+    motionZ *= slipperiness;
+    return new Motion(motionX, motionY, motionZ);
+  }
+
+  private boolean shouldCorrectSlimeBounceLanding(
+    User user,
+    MovementMetadata movementData,
+    double baseMotionXBeforeMove,
+    double baseMotionYBeforeMove,
+    double baseMotionZBeforeMove,
+    double receivedMotionY
+  ) {
+    if (SLIME_BLOCK == null || movementData.isSneaking() || movementData.isInVehicle()) {
+      return false;
+    }
+    if (movementData.inWater() || movementData.inLava() || movementData.inWeb()) {
+      return false;
+    }
+    if (receivedMotionY > 0.0D || Math.abs(receivedMotionY) > SLIME_BOUNCE_LANDING_DELTA) {
+      return false;
+    }
+    if (baseMotionYBeforeMove >= -movementData.resetMotion() && receivedMotionY >= -movementData.resetMotion()) {
+      return false;
+    }
+    if (!slimeBlockRecentlyBelow(user, movementData)) {
+      return false;
+    }
+    SimpleColliderResult landingCollision = Colliders.simplifiedCollision(
+      user.player(),
+      movementData,
+      movementData.verifiedPositionX,
+      movementData.verifiedPositionY,
+      movementData.verifiedPositionZ,
+      baseMotionXBeforeMove,
+      baseMotionYBeforeMove,
+      baseMotionZBeforeMove
+    );
+    return movementData.onGround()
+      || landingCollision.onGround()
+      || landingCollision.collidedVertically()
+      || Math.abs(movementData.positionY - Math.floor(movementData.positionY)) < 1.0E-4D;
+  }
+
+  private boolean shouldAdvanceSlimeBounceOnFlyingPacket(User user, MovementMetadata movementData) {
+    if (SLIME_BLOCK == null || movementData.isSneaking() || movementData.isInVehicle()) {
+      return false;
+    }
+    if (movementData.inWater() || movementData.inLava() || movementData.inWeb()) {
+      return false;
+    }
+    if (movementData.baseMotionY >= -movementData.resetMotion()) {
+      return false;
+    }
+    if (!slimeBlockRecentlyBelow(user, movementData)) {
+      return false;
+    }
+
+    SimpleColliderResult collision = Colliders.simplifiedCollision(
+      user.player(),
+      movementData,
+      movementData.verifiedPositionX,
+      movementData.verifiedPositionY,
+      movementData.verifiedPositionZ,
+      movementData.baseMotionX,
+      movementData.baseMotionY,
+      movementData.baseMotionZ
+    );
+    return collision.onGround() && Math.abs(collision.motionY()) < movementData.resetMotion();
+  }
+
+  private boolean shouldDampenSlimeFlyingPacket(User user, MovementMetadata movementData) {
+    if (SLIME_BLOCK == null || movementData.isSneaking() || movementData.isInVehicle()) {
+      return false;
+    }
+    if (movementData.inWater() || movementData.inLava() || movementData.inWeb()) {
+      return false;
+    }
+    if (!slimeBlockRecentlyBelow(user, movementData)) {
+      return false;
+    }
+    double horizontal = Math.sqrt(movementData.baseMotionX * movementData.baseMotionX + movementData.baseMotionZ * movementData.baseMotionZ);
+    return horizontal > movementData.resetMotion()
+      && horizontal < 0.05D
+      && Math.abs(movementData.baseMotionY) < SLIME_BOUNCE_LANDING_DELTA
+      && (movementData.onGround() || movementData.lastOnGround());
+  }
+
+  private Motion slimeFlyingPacketNextMotion(User user, MovementMetadata movementData) {
+    double motionX = movementData.baseMotionX;
+    double motionY = movementData.baseMotionY;
+    double motionZ = movementData.baseMotionZ;
+    double horizontalSlowdown = 0.4D + Math.abs(motionY) * 0.2D;
+    motionX *= horizontalSlowdown;
+    motionZ *= horizontalSlowdown;
+
+    float slipperiness = MovementCharacteristics.currentSlipperiness(
+      user,
+      user.player().getWorld(),
+      floor(movementData.verifiedPositionX),
+      floor(movementData.verifiedPositionY - movementData.frictionPosSubtraction()),
+      floor(movementData.verifiedPositionZ)
+    );
+    motionX *= slipperiness;
+    motionZ *= slipperiness;
+    if (Math.abs(motionX) < movementData.resetMotion()) {
+      motionX = 0.0D;
+    }
+    if (Math.abs(motionY) < movementData.resetMotion()) {
+      motionY = 0.0D;
+    }
+    if (Math.abs(motionZ) < movementData.resetMotion()) {
+      motionZ = 0.0D;
+    }
+    return new Motion(motionX, motionY, motionZ);
+  }
+
+  private boolean slimeBlockRecentlyBelow(User user, MovementMetadata movementData) {
+    if (movementData.collideMaterial() == SLIME_BLOCK
+      || movementData.frictionMaterial() == SLIME_BLOCK
+      || movementData.previousCollideMaterial() == SLIME_BLOCK
+      || movementData.previousFrictionMaterial() == SLIME_BLOCK) {
+      return true;
+    }
+    return slimeBlockTouchesFeet(user, movementData, movementData.positionX, movementData.positionY, movementData.positionZ)
+      || slimeBlockTouchesFeet(user, movementData, movementData.verifiedPositionX, movementData.verifiedPositionY, movementData.verifiedPositionZ)
+      || slimeBlockTouchesFeet(user, movementData, movementData.lastPositionX, movementData.lastPositionY, movementData.lastPositionZ);
+  }
+
+  private boolean slimeBlockTouchesFeet(
+    User user,
+    MovementMetadata movementData,
+    double positionX,
+    double positionY,
+    double positionZ
+  ) {
+    World world = user.player().getWorld();
+    BoundingBox box = BoundingBox.fromPosition(user, movementData, positionX, positionY, positionZ).growHorizontally(0.001D);
+    int startX = floor(box.minX + 0.001D);
+    int endX = floor(box.maxX - 0.001D);
+    int startZ = floor(box.minZ + 0.001D);
+    int endZ = floor(box.maxZ - 0.001D);
+    int supportY = floor(positionY - movementData.frictionPosSubtraction());
+    for (int x = startX; x <= endX; x++) {
+      for (int z = startZ; z <= endZ; z++) {
+        if (VolatileBlockAccess.typeAccess(user, world, x, supportY, z) == SLIME_BLOCK
+          || VolatileBlockAccess.typeAccess(user, world, x, supportY - 1, z) == SLIME_BLOCK) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private void predictFlyingPacketBeforeVelocity(User user) {
@@ -386,6 +608,16 @@ public final class Physics extends Check {
     double predictedX = context.motionX();
     double predictedY = context.motionY();
     double predictedZ = context.motionZ();
+    boolean pistonSlimeDisplacementSimulation = simulation.details().contains("psbk")
+      || simulation.details().contains("psbm");
+    if (pistonSlimeDisplacementSimulation) {
+      movementData.endMotionXOverride = true;
+      movementData.endMotionYOverride = true;
+      movementData.endMotionZOverride = true;
+      movementData.endMotionXOverrideValue = movementData.pistonSlimeBounceMotionX;
+      movementData.endMotionYOverrideValue = movementData.pistonSlimeBounceMotionY;
+      movementData.endMotionZOverrideValue = movementData.pistonSlimeBounceMotionZ;
+    }
     double differenceX = predictedX - receivedMotionX;
     double differenceY = predictedY - receivedMotionY;
     double differenceZ = predictedZ - receivedMotionZ;
@@ -475,7 +707,7 @@ public final class Physics extends Check {
 
     boolean expectProblems = movementData.pastElytraFlying <= 2 || movementData.pastWaterMovement <= 2;
 
-    if (distance > 0.01 && !expectProblems && (verticalViolationIncrease > 5 || horizontalViolationIncrease > 5)) {
+    if (distance > 0.01 && !pistonSlimeDisplacementSimulation && !expectProblems && (verticalViolationIncrease > 5 || horizontalViolationIncrease > 5)) {
       if (Math.abs(receivedMotionX) > 0.15 && differenceX > 0.025) {
         movementData.endMotionXOverride = true;
         movementData.endMotionXOverrideValue = predictedX * 0.98;

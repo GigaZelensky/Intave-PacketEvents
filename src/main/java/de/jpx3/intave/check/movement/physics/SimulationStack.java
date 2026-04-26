@@ -9,16 +9,21 @@ final class SimulationStack {
 
   private Simulation simulation;
   private double smallestDistance;
+  private Simulation unrestrictedSimulation;
+  private double unrestrictedSmallestDistance;
 
   private int trials;
 
   SimulationStack() {
     this.smallestDistance = DEFAULT_DISTANCE;
+    this.unrestrictedSmallestDistance = DEFAULT_DISTANCE;
   }
 
   void restore() {
     simulation = Simulation.invalid();
     smallestDistance = DEFAULT_DISTANCE;
+    unrestrictedSimulation = Simulation.invalid();
+    unrestrictedSmallestDistance = DEFAULT_DISTANCE;
   }
 
   void tryAppendToState(
@@ -38,12 +43,26 @@ final class SimulationStack {
     this.smallestDistance = newDistance;
   }
 
+  void tryAppendToUnrestrictedState(
+    Simulation simulation,
+    double newDistance
+  ) {
+    if (newDistance < this.unrestrictedSmallestDistance) {
+      unrestrictedSimulation = simulation;
+      unrestrictedSmallestDistance = newDistance;
+    }
+  }
+
   boolean noMatch() {
     return simulation == null || this.smallestDistance == DEFAULT_DISTANCE;
   }
 
   Simulation bestSimulation() {
     return simulation;
+  }
+
+  Simulation bestUnrestrictedSimulation() {
+    return unrestrictedSimulation;
   }
 
   int forward() {
@@ -76,6 +95,10 @@ final class SimulationStack {
 
   double smallestDistance() {
     return smallestDistance;
+  }
+
+  double unrestrictedSmallestDistance() {
+    return unrestrictedSmallestDistance;
   }
 
   public int trials() {

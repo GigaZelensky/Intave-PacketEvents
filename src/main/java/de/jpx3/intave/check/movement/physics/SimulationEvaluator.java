@@ -19,6 +19,14 @@ import static java.lang.Math.abs;
 
 public final class SimulationEvaluator {
   private static final double LADDER_UPWARDS_MOTION = (0.2 - 0.08) * 0.98005f;
+  private static final int FIREWORK_STARTUP_TICKS = 2;
+  private static final int FIREWORK_TRAILING_TICKS = 2;
+  private static final double FIREWORK_VERTICAL_STARTUP_TOLERANCE = 0.45;
+  private static final double FIREWORK_VERTICAL_ACTIVE_TOLERANCE = 0.3;
+  private static final double FIREWORK_VERTICAL_TRAILING_TOLERANCE = 0.15;
+  private static final double FIREWORK_HORIZONTAL_STARTUP_TOLERANCE = 0.8;
+  private static final double FIREWORK_HORIZONTAL_ACTIVE_TOLERANCE = 0.45;
+  private static final double FIREWORK_HORIZONTAL_TRAILING_TOLERANCE = 0.2;
 
   public double calculateVerticalViolationLevelIncrease(
     User user,
@@ -77,11 +85,15 @@ public final class SimulationEvaluator {
     }
 
     // Firework
-    if (movement.fireworkRocketsTicks < 10 * movement.fireworkRocketsPower) {
-      verticalLegitimateDeviation = Math.max(verticalLegitimateDeviation, 1);
+    int maxFireworkBoostTicks = ElytraSimulator.maxFireworkBoostTicks(movement);
+    if (movement.fireworkRocketsTicks <= FIREWORK_STARTUP_TICKS) {
+      verticalLegitimateDeviation = Math.max(verticalLegitimateDeviation, FIREWORK_VERTICAL_STARTUP_TOLERANCE);
       tags.add(EvaluationTag.FIREWORK);
-    } else if (movement.fireworkRocketsTicks < 30 * movement.fireworkRocketsPower) {
-      verticalLegitimateDeviation = Math.max(verticalLegitimateDeviation, 0.75);
+    } else if (movement.fireworkRocketsTicks <= maxFireworkBoostTicks) {
+      verticalLegitimateDeviation = Math.max(verticalLegitimateDeviation, FIREWORK_VERTICAL_ACTIVE_TOLERANCE);
+      tags.add(EvaluationTag.FIREWORK);
+    } else if (movement.fireworkRocketsTicks <= maxFireworkBoostTicks + FIREWORK_TRAILING_TICKS) {
+      verticalLegitimateDeviation = Math.max(verticalLegitimateDeviation, FIREWORK_VERTICAL_TRAILING_TOLERANCE);
       tags.add(EvaluationTag.FIREWORK);
     }
 
@@ -389,9 +401,15 @@ public final class SimulationEvaluator {
     }
 
     // Firework
-    if (movement.fireworkRocketsTicks < 30 * movement.fireworkRocketsPower) {
-      // srsly who cares
-      horizontalLegitimateDeviation = Math.max(horizontalLegitimateDeviation, 3);
+    int maxFireworkBoostTicks = ElytraSimulator.maxFireworkBoostTicks(movement);
+    if (movement.fireworkRocketsTicks <= FIREWORK_STARTUP_TICKS) {
+      horizontalLegitimateDeviation = Math.max(horizontalLegitimateDeviation, FIREWORK_HORIZONTAL_STARTUP_TOLERANCE);
+      tags.add(EvaluationTag.FIREWORK);
+    } else if (movement.fireworkRocketsTicks <= maxFireworkBoostTicks) {
+      horizontalLegitimateDeviation = Math.max(horizontalLegitimateDeviation, FIREWORK_HORIZONTAL_ACTIVE_TOLERANCE);
+      tags.add(EvaluationTag.FIREWORK);
+    } else if (movement.fireworkRocketsTicks <= maxFireworkBoostTicks + FIREWORK_TRAILING_TICKS) {
+      horizontalLegitimateDeviation = Math.max(horizontalLegitimateDeviation, FIREWORK_HORIZONTAL_TRAILING_TOLERANCE);
       tags.add(EvaluationTag.FIREWORK);
     }
 
