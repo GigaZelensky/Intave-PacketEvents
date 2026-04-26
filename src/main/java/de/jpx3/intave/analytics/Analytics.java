@@ -1,6 +1,5 @@
 package de.jpx3.intave.analytics;
 
-import com.comphenix.protocol.ProtocolLibrary;
 import com.google.common.collect.Maps;
 import com.google.gson.JsonObject;
 import de.jpx3.intave.IntavePlugin;
@@ -9,6 +8,7 @@ import de.jpx3.intave.cleanup.ShutdownTasks;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.util.Map;
@@ -60,13 +60,13 @@ public final class Analytics {
     json.add("server", serverJson);
 
     JsonObject addonsJson = new JsonObject();
-      JsonObject protocolLibJson = new JsonObject();
-      protocolLibJson.addProperty("present", "true");
-      protocolLibJson.addProperty("version", ProtocolLibrary.getPlugin().getDescription().getVersion());
-      protocolLibJson.addProperty("protocol-manager", ProtocolLibrary.getProtocolManager().getClass().getName());
-      protocolLibJson.addProperty("async-manager", ProtocolLibrary.getProtocolManager().getAsynchronousManager().getClass().toString());
-      protocolLibJson.addProperty("listeners", ProtocolLibrary.getProtocolManager().getPacketListeners().toString());
-    addonsJson.add("protocollib", protocolLibJson);
+      JsonObject packetEventsJson = new JsonObject();
+      Plugin packetEvents = Bukkit.getPluginManager().getPlugin("packetevents");
+      packetEventsJson.addProperty("present", packetEvents != null);
+      if (packetEvents != null) {
+        packetEventsJson.addProperty("version", packetEvents.getDescription().getVersion());
+      }
+    addonsJson.add("packetevents", packetEventsJson);
       JsonObject viaVersionJson = new JsonObject();
       viaVersionJson.addProperty("present", ViaVersionAdapter.foundLinkage() + "");
       if (ViaVersionAdapter.foundLinkage()) {

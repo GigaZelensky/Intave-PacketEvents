@@ -12,7 +12,6 @@ import de.jpx3.intave.module.actionbar.ActionBarDisplayer;
 import de.jpx3.intave.module.actionbar.DisplayType;
 import de.jpx3.intave.module.violation.ViolationVerboseMode;
 import de.jpx3.intave.player.ProfileLookup;
-import de.jpx3.intave.security.LicenseAccess;
 import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
@@ -119,10 +118,7 @@ public final class BaseStage extends CommandStage {
         player.sendMessage(IntavePlugin.prefix() + "You have specified " + modeName + " fine violation output to " + names);
         return;
       }
-    } /*else if (selectedPlayers == null && !IntavePlugin.singletonInstance().sibyl().isAuthenticated(player)) {
-      player.sendMessage(IntavePlugin.prefix() + "/intave verbose <player...>");
-      return;
-    }*/
+    }
 
     user.toggleReceive(MessageChannel.VIOLATION_FINE);
     user.removeChannelConstraint(MessageChannel.VIOLATION_FINE);
@@ -241,7 +237,7 @@ public final class BaseStage extends CommandStage {
   @SubCommand(
     selectors = {"alert", "alerts"},
     hideInHelp = true,
-    description = ""
+    description = "Redirect to verbose notification output"
   )
   public void redirectToVerbose(CommandSender sender) {
     if (!BukkitPermissionCheck.permissionCheck(sender, "intave.command.verbose")) {
@@ -535,9 +531,8 @@ public final class BaseStage extends CommandStage {
   @SubCommand(
     selectors = "root",
     usage = "",
-    description = "",
-    permission = "sibyl",
-    hideInHelp = true
+    description = "Developer and debug tooling",
+    permission = "intave.command"
   )
   @Forward(
     target = RootStage.class
@@ -560,8 +555,8 @@ public final class BaseStage extends CommandStage {
   @SubCommand(
     selectors = "sample",
     usage = "",
-    permission = "sibyl",
-    hideInHelp = true
+    description = "Sample and test tooling",
+    permission = "intave.command"
   )
   @Forward(
     target = SampleStage.class

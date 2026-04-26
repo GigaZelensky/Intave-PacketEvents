@@ -16,7 +16,6 @@ import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.nayoro.Classifier;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationProcessor;
-import de.jpx3.intave.security.LicenseAccess;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import io.netty.channel.ChannelHandlerContext;

@@ -4,8 +4,6 @@ import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.cleanup.ShutdownTasks;
 import de.jpx3.intave.connect.IntaveDomains;
 import de.jpx3.intave.executor.BackgroundExecutors;
-import de.jpx3.intave.security.HWIDVerification;
-import de.jpx3.intave.security.LicenseAccess;
 import org.bukkit.Bukkit;
 
 import javax.crypto.Cipher;
@@ -212,8 +210,6 @@ public final class ScheduledUploadService {
       connection.setDoOutput(true);
       connection.setRequestMethod("POST");
       connection.setRequestProperty("Content-Type", "application/zip");
-      connection.setRequestProperty("Identifier", LicenseAccess.rawLicense());
-      connection.setRequestProperty("Hardware", HWIDVerification.publicHardwareIdentifier());
       connection.setRequestProperty("User-Agent", "Intave/" + IntavePlugin.version());
       OutputStream outputStream = connection.getOutputStream();
       try (ZipOutputStream zipOut = new ZipOutputStream(outputStream)) {

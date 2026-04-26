@@ -20,11 +20,9 @@ import static de.jpx3.intave.math.MathHelper.formatDouble;
 
 public final class PerformanceStage extends CommandStage {
   private static PerformanceStage singletonInstance;
-  private final IntavePlugin plugin;
 
   private PerformanceStage() {
     super(BaseStage.singletonInstance(), "performance");
-    plugin = IntavePlugin.singletonInstance();
   }
 
   @SubCommand(
@@ -37,31 +35,29 @@ public final class PerformanceStage extends CommandStage {
     String fullSpecifier = specifier != null ? Arrays.stream(specifier).map(s -> s + " ").collect(Collectors.joining()).trim().toLowerCase(Locale.ROOT) : "";
 
     Player player = user.player();
-//    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.RED + "Loading timings...");
+    player.sendMessage(ChatColor.RED + "Loading timings...");
 
-      List<Timing> timings = new ArrayList<>(Timings.timingPool());
-      timings.sort(Timing::compareTo);
+    List<Timing> timings = new ArrayList<>(Timings.timingPool());
+    timings.sort(Timing::compareTo);
 
-      timings.forEach(timing -> {
-        if (!timing.isBukkitEventTiming()) return;
-        boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
-        boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
-        String message = String.format(
-          "%s: %s::%sms (%s ms/c)",
-          timing.coloredName(),
-          timing.recordedCalls(),
-          formatDouble(timing.totalDurationMillis(), 4),
-          (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
-            formatDouble(timing.averageCallDurationInMillis(), 8)
-            + ChatColor.WHITE
-        );
-        if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
-          message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
-        }
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-      });
-//    }
+    timings.forEach(timing -> {
+      if (!timing.isBukkitEventTiming()) return;
+      boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
+      boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
+      String message = String.format(
+        "%s: %s::%sms (%s ms/c)",
+        timing.coloredName(),
+        timing.recordedCalls(),
+        formatDouble(timing.totalDurationMillis(), 4),
+        (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
+          formatDouble(timing.averageCallDurationInMillis(), 8)
+          + ChatColor.WHITE
+      );
+      if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
+        message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
+      }
+      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    });
   }
 
   @SubCommand(
@@ -74,30 +70,28 @@ public final class PerformanceStage extends CommandStage {
     String fullSpecifier = specifier != null ? Arrays.stream(specifier).map(s -> s + " ").collect(Collectors.joining()).trim().toLowerCase(Locale.ROOT) : "";
 
     Player player = user.player();
-//    if (plugin.sibyl().authentication().isAuthenticated(player)) {
-      player.sendMessage(ChatColor.RED + "Loading timings...");
+    player.sendMessage(ChatColor.RED + "Loading timings...");
 
-      List<Timing> timings = new ArrayList<>(Timings.timingPool());
-      timings.sort(Timing::compareTo);
+    List<Timing> timings = new ArrayList<>(Timings.timingPool());
+    timings.sort(Timing::compareTo);
 
-      timings.forEach(timing -> {
-        if (!timing.isPacketEventTiming()) return;
-        boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
-        boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
-        String message = String.format(
-          "%s: %s::%sms (%s&f ms/c)",
-          timing.coloredName(),
-          timing.recordedCalls(),
-          formatDouble(timing.totalDurationMillis(), 4),
-          (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
-            formatDouble(timing.averageCallDurationInMillis(), 8)
-        );
-        if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
-          message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
-        }
-        player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-      });
-//    }
+    timings.forEach(timing -> {
+      if (!timing.isPacketEventTiming()) return;
+      boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
+      boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
+      String message = String.format(
+        "%s: %s::%sms (%s&f ms/c)",
+        timing.coloredName(),
+        timing.recordedCalls(),
+        formatDouble(timing.totalDurationMillis(), 4),
+        (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
+          formatDouble(timing.averageCallDurationInMillis(), 8)
+      );
+      if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
+        message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
+      }
+      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+    });
   }
 
   public static PerformanceStage singletonInstance() {

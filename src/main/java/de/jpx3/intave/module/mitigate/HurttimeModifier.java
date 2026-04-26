@@ -2,14 +2,10 @@ package de.jpx3.intave.module.mitigate;
 
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.executor.Synchronizer;
-import de.jpx3.intave.klass.Lookup;
-import de.jpx3.intave.reflect.access.ReflectiveHandleAccess;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.PunishmentMetadata;
 import org.bukkit.entity.Player;
-
-import java.lang.reflect.Field;
 
 public final class HurttimeModifier {
   private static boolean hitDelayLinkageError = false;
@@ -51,10 +47,8 @@ public final class HurttimeModifier {
 
   private static int resolveNoDamageTicksOf(Player player) {
     try {
-      Object handle = ReflectiveHandleAccess.handleOf(player);
-      Field maxDamageTicks = Lookup.serverField("EntityLiving", "maxNoDamageTicks");
-      return (int) maxDamageTicks.get(handle);
-    } catch (IllegalAccessException exception) {
+      return player.getMaximumNoDamageTicks();
+    } catch (Exception exception) {
       exception.printStackTrace();
       IntaveLogger.logger().error("Intave has problems accessing an entity field");
       hitDelayLinkageError = true;
@@ -64,10 +58,8 @@ public final class HurttimeModifier {
 
   public static void setNoDamageTicksOf(Player player, int noDamageTicks) {
     try {
-      Field maxDamageTicks = Lookup.serverField("EntityLiving", "maxNoDamageTicks");//handle.getClass().getField("maxNoDamageTicks");
-      Object handle = ReflectiveHandleAccess.handleOf(player);
-      maxDamageTicks.set(handle, noDamageTicks);
-    } catch (IllegalAccessException exception) {
+      player.setMaximumNoDamageTicks(noDamageTicks);
+    } catch (Exception exception) {
       exception.printStackTrace();
       IntaveLogger.logger().error("Intave has problems accessing an entity field");
       hitDelayLinkageError = true;

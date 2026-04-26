@@ -3,8 +3,6 @@ package de.jpx3.intave.connect.upload;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.cleanup.ShutdownTasks;
 import de.jpx3.intave.connect.IntaveDomains;
-import de.jpx3.intave.security.HWIDVerification;
-import de.jpx3.intave.security.LicenseAccess;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -92,8 +90,6 @@ public class RealtimedataUplink {
       URL url = new URL(IntaveDomains.primaryServiceDomain() + "/rtd/upload.php");
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
       connection.setRequestProperty("Content-Type", "application/zip");
-      connection.setRequestProperty("Identifier", LicenseAccess.rawLicense());
-      connection.setRequestProperty("Hardware", HWIDVerification.publicHardwareIdentifier());
       connection.setRequestProperty("Type", type);
       connection.setRequestProperty("User-Agent", "Intave/" + IntavePlugin.version());
 

@@ -1,15 +1,18 @@
 package de.jpx3.intave.module.actionbar;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUseItem;
 import de.jpx3.intave.check.EventProcessor;
 import de.jpx3.intave.check.combat.clickpatterns.Kurtosis;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
-import de.jpx3.intave.packet.reader.EntityUseReader;
-import de.jpx3.intave.packet.reader.PacketReaders;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserLocal;
 import de.jpx3.intave.user.UserRepository;
@@ -19,7 +22,6 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.PlayerDigType.DROP_ITEM;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static java.lang.Math.pow;
@@ -30,49 +32,97 @@ public final class ClickFeeder implements EventProcessor {
   @PacketSubscription(
     priority = ListenerPriority.HIGH,
     packetsIn = {
-      USE_ENTITY, ARM_ANIMATION, BLOCK_DIG, USE_ITEM
+      USE_ENTITY, ARM_ANIMATION, BLOCK_DIG, USE_ITEM, USE_ITEM_ON
     }
   )
-  public void clientClickUpdate(PacketEvent event) {
+  public void clientClickUpdate(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     ClickBufferData bufferData = this.bufferData.get(user);
-    PacketContainer packet = event.getPacket();
-    PacketType type = packet.getType();
-    if (type == PacketType.Play.Client.USE_ENTITY) {
-      EntityUseReader reader = PacketReaders.readerOf(packet);
-      EnumWrappers.EntityUseAction entityUseAction = reader.useAction();
-      if (entityUseAction == EnumWrappers.EntityUseAction.ATTACK) {
+    PacketTypeCommon type = event.getPacketType();
+    if (type == PacketType.Play.Client.INTERACT_ENTITY) {
+      WrapperPlayClientInteractEntity packet = new WrapperPlayClientInteractEntity((PacketReceiveEvent) event);
+      if (packet.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
         bufferData.attacks++;
       }
-      reader.release();
-    } else if (type == PacketType.Play.Client.ARM_ANIMATION) {
-      bufferData.clicks++;
-      if (System.currentTimeMillis() - bufferData.lastMove > 200) {
-        bufferData.desynchronizedClick = true;
-      }
-    } else if (type == PacketType.Play.Client.BLOCK_DIG) {
-      if (packet.getPlayerDigTypes().read(0) == DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
-        UUID actionTarget = user.actionTarget();
-        if (actionTarget != null) {
-          User actionTargetUser = UserRepository.userOf(actionTarget);
-          if (actionTargetUser.hasPlayer()) {
-            ClickBufferData otherBufferData = this.bufferData.get(actionTargetUser);
-            otherBufferData.tab++;
-            otherBufferData.tab %= otherBufferData.totalTabs;
-            otherBufferData.frontVisible = 0;
-            otherBufferData.changeDisplayVisible = 0;
-            Arrays.fill(otherBufferData.tabVisibility, 0);
-          }
-        }
-      } else {
-        bufferData.breakingBlock = user.meta().attack().inBreakProcess;
-        bufferData.places++;
-      }
+    } else if (type == PacketType.Play.Client.ANIMATION) {
+      receiveArmAnimation(user, bufferData);
+    } else if (type == PacketType.Play.Client.PLAYER_DIGGING) {
+      WrapperPlayClientPlayerDigging packet = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
+      receiveDigging(user, bufferData, packet.getAction());
     } else {
-      bufferData.breakingBlock = user.meta().attack().inBreakProcess;
-      bufferData.places++;
+      receiveRightClick(user, bufferData, rightClickSequence(user, event));
     }
+  }
+
+  private void receiveArmAnimation(User user, ClickBufferData bufferData) {
+    if (user.meta().attack().inBreakProcess || bufferData.breakingBlock) {
+      bufferData.breakingBlock = true;
+      return;
+    }
+    bufferData.clicks++;
+    if (System.currentTimeMillis() - bufferData.lastMove > 200) {
+      bufferData.desynchronizedClick = true;
+    }
+  }
+
+  private void receiveDigging(User user, ClickBufferData bufferData, DiggingAction action) {
+    if (action == DiggingAction.DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
+      cycleDisplayTab(user);
+      return;
+    }
+    if (action == DiggingAction.START_DIGGING) {
+      bufferData.breakingBlock = true;
+    } else if (action == DiggingAction.FINISHED_DIGGING
+      || action == DiggingAction.CANCELLED_DIGGING) {
+      bufferData.breakingBlock = false;
+    }
+  }
+
+  private void receiveRightClick(User user, ClickBufferData bufferData, int sequence) {
+    bufferData.breakingBlock = user.meta().attack().inBreakProcess;
+    long now = System.currentTimeMillis();
+    boolean repeatedSequence = sequence >= 0 && sequence == bufferData.lastRightClickSequence;
+    boolean repeatedBurst = now - bufferData.lastRightClick < 75L;
+    if (bufferData.recordedRightClick || repeatedSequence || repeatedBurst) {
+      return;
+    }
+    bufferData.places++;
+    bufferData.recordedRightClick = true;
+    bufferData.lastRightClick = now;
+    bufferData.lastRightClickSequence = sequence;
+  }
+
+  private int rightClickSequence(User user, ProtocolPacketEvent event) {
+    if (!user.meta().protocol().clientSpeculativeBlocks()) {
+      return -1;
+    }
+    PacketReceiveEvent receiveEvent = (PacketReceiveEvent) event;
+    PacketTypeCommon type = event.getPacketType();
+    if (type == PacketType.Play.Client.USE_ITEM) {
+      return new WrapperPlayClientUseItem(receiveEvent).getSequence();
+    }
+    if (type == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
+      return new WrapperPlayClientPlayerBlockPlacement(receiveEvent).getSequence();
+    }
+    return -1;
+  }
+
+  private void cycleDisplayTab(User user) {
+    UUID actionTarget = user.actionTarget();
+    if (actionTarget == null) {
+      return;
+    }
+    User actionTargetUser = UserRepository.userOf(actionTarget);
+    if (!actionTargetUser.hasPlayer()) {
+      return;
+    }
+    ClickBufferData otherBufferData = this.bufferData.get(actionTargetUser);
+    otherBufferData.tab++;
+    otherBufferData.tab %= otherBufferData.totalTabs;
+    otherBufferData.frontVisible = 0;
+    otherBufferData.changeDisplayVisible = 0;
+    Arrays.fill(otherBufferData.tabVisibility, 0);
   }
 
   @PacketSubscription(
@@ -81,11 +131,11 @@ public final class ClickFeeder implements EventProcessor {
       FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END
     }
   )
-  public void clientTickUpdate(PacketEvent event) {
+  public void clientTickUpdate(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
 
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     boolean sendsClientTickEnd = user.meta().protocol().sendsClientTickEnd();
 
     if (sendsClientTickEnd && packetType != PacketType.Play.Client.CLIENT_TICK_END) {
@@ -96,16 +146,16 @@ public final class ClickFeeder implements EventProcessor {
     TickAction action = TickAction.NOTHING;
     int intensity = 0;
 
-    if (bufferData.clicks > 0) {
-      action = TickAction.CLICK;
-      intensity = bufferData.clicks;
-    }
+    int clicks = bufferData.breakingBlock ? 0 : bufferData.clicks;
     if (bufferData.attacks > 0) {
       action = TickAction.ATTACK;
       intensity = bufferData.attacks;
     } else if (bufferData.places > 0) {
       action = TickAction.PLACE;
       intensity = bufferData.places;
+    } else if (clicks > 0) {
+      action = TickAction.CLICK;
+      intensity = clicks;
     }
     if (user.anyActionSubscriptions()) {
       bufferData.append(action, intensity);
@@ -133,7 +183,7 @@ public final class ClickFeeder implements EventProcessor {
         bufferData.frontVisible = 0;
         Arrays.fill(bufferData.tabVisibility, 0);
       } else if ((bufferData.tabVisibility[1] > 0 || bufferData.frontVisible == 0) && bufferData.tab == 1 && bufferData.tabVisibility[1] < 20) {
-        text = ChatColor.GRAY + "C = Clicks, A = Attacks, P = Places, " + ChatColor.GREEN + "Once per tick" + ChatColor.GRAY + ", " + ChatColor.YELLOW + "Twice per tick" + ChatColor.GRAY + ", " + ChatColor.RED + "Three times per tick";
+        text = ChatColor.GRAY + "L = Left, R = Right, A = Attack, " + ChatColor.GREEN + "Once per tick" + ChatColor.GRAY + ", " + ChatColor.YELLOW + "Twice per tick" + ChatColor.GRAY + ", " + ChatColor.RED + "Three times per tick";
         bufferData.frontVisible = 1;
       } else if ((bufferData.tabVisibility[2] > 0 || bufferData.frontVisible == 0) && bufferData.tab == 2 && bufferData.tabVisibility[2] < 20) {
         text = ChatColor.GRAY + "History with " + ChatColor.RED + "6(" + ChatColor.GRAY + "streak" + ChatColor.RED + ")" + ChatColor.GRAY + " display";
@@ -159,6 +209,7 @@ public final class ClickFeeder implements EventProcessor {
     bufferData.attacks = 0;
     bufferData.clicks = 0;
     bufferData.places = 0;
+    bufferData.recordedRightClick = false;
     bufferData.desynchronizedClick = false;
     bufferData.lastMove = System.currentTimeMillis();
   }
@@ -170,8 +221,11 @@ public final class ClickFeeder implements EventProcessor {
     private final List<Boolean> unreliableTicks = new LinkedList<>();
     private final List<Integer> streakLength = new LinkedList<>();
     private int clicks, attacks, places;
+    private boolean recordedRightClick;
     private boolean breakingBlock;
     private boolean desynchronizedClick;
+    private int lastRightClickSequence = -1;
+    private long lastRightClick;
     private int anyVisible = 0;
     private int frontVisible = 0;
     private int changeDisplayVisible = 0;
@@ -222,18 +276,20 @@ public final class ClickFeeder implements EventProcessor {
     }
 
     public String buildActionBar() {
-      int attackTicks = 0, clickTicks = 0;
+      int leftClickTicks = 0, rightClickTicks = 0;
       int whileBreaking = 0;
 
       for (int i = tickActions.size() - 1; i >= tickIntensity.size() / 2; i--) {
         TickAction tickAction = tickActions.get(i);
         Integer intensity = tickIntensity.get(i);
         if (tickAction == TickAction.ATTACK) {
-          attackTicks += intensity;
-          clickTicks += intensity;
+          leftClickTicks += intensity;
         }
         if (tickAction == TickAction.CLICK) {
-          clickTicks += intensity;
+          leftClickTicks += intensity;
+        }
+        if (tickAction == TickAction.PLACE) {
+          rightClickTicks += intensity;
         }
         if (unreliableTicks.get(i)) {
           whileBreaking += intensity;
@@ -247,14 +303,14 @@ public final class ClickFeeder implements EventProcessor {
 
       int tabVisibility = this.tabVisibility[tab];
 
-      if (attackTicks == 0 && clickTicks == 0 && (frontVisible / 20) % 2 == 0 && frontVisible <= 60) {
-        builder.append("A/C");
+      if (leftClickTicks == 0 && rightClickTicks == 0 && (frontVisible / 20) % 2 == 0 && frontVisible <= 60) {
+        builder.append("L/R");
       } else {
         boolean breakBlock = whileBreaking > 5;
         if (breakingBlock) {
 //          builder.append(ChatColor.STRIKETHROUGH);
         }
-        builder.append(attackTicks);
+        builder.append(leftClickTicks);
         if (breakingBlock) {
           builder.append(ChatColor.GRAY);
         }
@@ -262,7 +318,7 @@ public final class ClickFeeder implements EventProcessor {
         if (breakingBlock) {
           builder.append(ChatColor.STRIKETHROUGH);
         }
-        builder.append(clickTicks);
+        builder.append(rightClickTicks);
         if (breakingBlock) {
           builder.append(ChatColor.GRAY);
         }
@@ -497,9 +553,9 @@ public final class ClickFeeder implements EventProcessor {
 
   public enum TickAction {
     NOTHING(' '),
-    CLICK('C'),
+    CLICK('L'),
     ATTACK('A'),
-    PLACE('P'),
+    PLACE('R'),
     ;
     private final char representation;
 

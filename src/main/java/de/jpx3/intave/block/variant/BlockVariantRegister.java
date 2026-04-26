@@ -73,6 +73,9 @@ public final class BlockVariantRegister {
 
   public static int variantIndexOf(Material type, Object rawBlockData) {
     Map<Object, Integer> indexMap = blockDataIndex.get(type);
+    if (indexMap == null) {
+      return -1;
+    }
     Integer integer = indexMap.get(rawBlockData);
     return integer == null ? -1 : integer;
   }

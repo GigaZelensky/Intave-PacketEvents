@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.detect.other;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.combat.Heuristics;
@@ -12,14 +12,13 @@ import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.math.Hypot;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
-import de.jpx3.intave.packet.converter.PlayerAction;
-import de.jpx3.intave.packet.converter.PlayerActionResolver;
+import de.jpx3.intave.protocol.PlayerAction;
+import de.jpx3.intave.protocol.PlayerActionResolver;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.*;
 import org.bukkit.entity.Player;
 
 import static de.jpx3.intave.check.combat.heuristics.Anomaly.AnomalyOption.*;
-import static de.jpx3.intave.entity.datawatcher.DataWatcherAccess.WATCHER_SNEAK_ID;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuristics, PacketPlayerActionToggleHeuristic.PacketSprintToggleHeuristicMeta> {
@@ -37,7 +36,7 @@ public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuri
       FLYING, POSITION, POSITION_LOOK, LOOK
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketSprintToggleHeuristicMeta heuristicMeta = metaOf(player);
     heuristicMeta.reset();
@@ -48,7 +47,7 @@ public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuri
       ENTITY_ACTION_IN
     }
   )
-  public void receiveEntityAction(PacketEvent event) {
+  public void receiveEntityAction(ProtocolPacketEvent event, WrapperPlayClientEntityAction packet) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MetadataBundle meta = user.meta();
@@ -58,7 +57,6 @@ public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuri
     PunishmentMetadata punishmentData = user.meta().punishment();
     PacketSprintToggleHeuristicMeta heuristicMeta = metaOf(user);
 
-    PacketContainer packet = event.getPacket();
     PlayerAction action = PlayerActionResolver.resolveActionFromPacket(packet);
 
     boolean sprint = action == PlayerAction.START_SPRINTING || action == PlayerAction.STOP_SPRINTING;
@@ -105,7 +103,7 @@ public final class PacketPlayerActionToggleHeuristic extends MetaCheckPart<Heuri
             user.nerf(AttackNerfStrategy.CANCEL, VERBOSE_NAME);
           } else {
             punishmentData.timeLastSneakToggleCancel = System.currentTimeMillis();
-            Synchronizer.synchronize(() -> DataWatcherAccess.setDataWatcherFlag(player, WATCHER_SNEAK_ID, false));
+            Synchronizer.synchronize(() -> DataWatcherAccess.setSneakingFlag(player, false));
           }
         }
       }
