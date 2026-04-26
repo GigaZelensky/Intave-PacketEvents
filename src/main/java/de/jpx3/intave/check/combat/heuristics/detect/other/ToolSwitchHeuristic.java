@@ -91,7 +91,7 @@ public class ToolSwitchHeuristic extends MetaCheckPart<Heuristics, ToolSwitchHeu
 
         // Apply damage cancel if this happens too often
         if (++meta.cancelVl > 1) {
-          user.nerf(AttackNerfStrategy.DMG_LIGHT, "205");
+          user.nerf(AttackNerfStrategy.DMG_LIGHT, "attack:toolswitch");
         }
 
         meta.vl = 0;

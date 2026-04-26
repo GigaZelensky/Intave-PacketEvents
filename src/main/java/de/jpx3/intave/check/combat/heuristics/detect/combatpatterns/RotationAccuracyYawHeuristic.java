@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.detect.combatpatterns;
 
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.google.common.collect.Lists;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.combat.Heuristics;
@@ -235,13 +235,13 @@ public final class RotationAccuracyYawHeuristic extends MetaCheckPart<Heuristics
 //        String descriptor = "rotated suspiciously (" + MathHelper.formatDouble(maxRatio, 4) + " / " + MathHelper.formatDouble(maxDistanceToPerfectYaw, 4) + ")";
         String descriptor = SibylCensor.thisPlease("rotated suspiciously (%s / %s)", MathHelper.formatDouble(maxRatio, 4), MathHelper.formatDouble(maxDistanceToPerfectYaw, 4));
         int options = Anomaly.AnomalyOption.LIMIT_8 | Anomaly.AnomalyOption.SUGGEST_MINING;
-        Anomaly anomaly = Anomaly.anomalyOf("yaw:acc(", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
+        Anomaly anomaly = Anomaly.anomalyOf("yaw:acc(long)", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
         parentCheck().saveAnomaly(user.player(), anomaly);
       }
       if (yawAverage >= 3.5 && maxDistanceToPerfectYaw <= 12.5 && averageRatio > 1) {
         String descriptor = "precise rotation yaw (" + MathHelper.formatDouble(yawAverage, 4) + ")";
         int options = Anomaly.AnomalyOption.LIMIT_4 | Anomaly.AnomalyOption.SUGGEST_MINING;
-        Anomaly anomaly = Anomaly.anomalyOf(resolveCheckName(6), Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
+        Anomaly anomaly = Anomaly.anomalyOf("yaw:acc(precise)", Confidence.MAYBE, Anomaly.Type.KILLAURA, descriptor, options);
         parentCheck().saveAnomaly(user.player(), anomaly);
       }
       heuristicMeta.distancesToPerfectYaw.clear();
