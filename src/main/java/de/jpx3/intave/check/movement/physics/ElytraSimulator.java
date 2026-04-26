@@ -13,11 +13,36 @@ import static de.jpx3.intave.share.ClientMath.cos;
 import static de.jpx3.intave.share.ClientMath.sin;
 
 final class ElytraSimulator extends BaseSimulator {
+  private static final double FIREWORK_ACCELERATION = 0.1D;
+  private static final double FIREWORK_TARGET_SPEED = 1.5D;
+  private static final double FIREWORK_BLEND = 0.5D;
+  private static final int FIREWORK_MAX_RANDOM_LIFETIME = 11;
+  private static final int FIREWORK_TRACKING_LENIENCY_TICKS = 1;
+
   @Override
   public Simulation simulate(
     User user, Motion motion,
     SimulationEnvironment environment,
     MovementConfiguration configuration
+  ) {
+    Simulation vanillaSimulation = simulateStep(user, motion.copy(), environment, configuration, false).reusableCopy();
+    MovementMetadata movementData = user.meta().movement();
+    if (!fireworkBoostPossiblyActive(movementData)) {
+      return vanillaSimulation;
+    }
+
+    Simulation fireworkSimulation = simulateStep(user, motion.copy(), environment, configuration, true).reusableCopy();
+    Motion receivedMotion = environment.motion();
+    return fireworkSimulation.accuracy(receivedMotion) < vanillaSimulation.accuracy(receivedMotion)
+      ? fireworkSimulation
+      : vanillaSimulation;
+  }
+
+  private Simulation simulateStep(
+    User user, Motion motion,
+    SimulationEnvironment environment,
+    MovementConfiguration configuration,
+    boolean applyFireworkBoost
   ) {
     float rotationPitch = environment.rotationPitch();
     Vector lookVector = environment.lookVector();
@@ -55,11 +80,15 @@ final class ElytraSimulator extends BaseSimulator {
       motion.motionZ += (lookVectorZ / distance * dist2 - motion.motionZ) * 0.1D;
     }
 
+    if (applyFireworkBoost) {
+      applyFireworkBoostIfActive(user.meta().movement(), motion, lookVector);
+    }
+
     motion.motionX *= 0.99f;
     motion.motionY *= 0.98f;
     motion.motionZ *= 0.99f;
 
-    tryRelinkFlyingPosition(user, motion, environment);
+    tryRelinkFlyingPosition(user, motion, environment, applyFireworkBoost);
 
     ColliderResult collisionResult = Colliders.collision(
       user, environment, motion, environment.inWeb(),
@@ -69,7 +98,12 @@ final class ElytraSimulator extends BaseSimulator {
     return Simulation.of(user, configuration, collisionResult);
   }
 
-  private void tryRelinkFlyingPosition(User user, Motion motion, SimulationEnvironment environment) {
+  private void tryRelinkFlyingPosition(
+    User user,
+    Motion motion,
+    SimulationEnvironment environment,
+    boolean applyFireworkBoost
+  ) {
     Player player = user.player();
     MovementMetadata movementData = user.meta().movement();
     float rotationPitch = environment.rotationPitch();
@@ -96,8 +130,8 @@ final class ElytraSimulator extends BaseSimulator {
       );
 
       positionX += colliderResult.motionX();
-      positionY += colliderResult.motionZ();
-      positionZ += colliderResult.motionY();
+      positionY += colliderResult.motionY();
+      positionZ += colliderResult.motionZ();
 
       double diffX = positionX - environment.verifiedPositionX();
       double diffY = positionY - environment.verifiedPositionY();
@@ -138,6 +172,10 @@ final class ElytraSimulator extends BaseSimulator {
         motion.motionZ += (lookVector.getZ() / rotationVectorDistance * dist2 - motion.motionZ) * 0.1D;
       }
 
+      if (applyFireworkBoost) {
+        applyFireworkBoostIfActive(movementData, motion, lookVector);
+      }
+
       motion.motionX *= 0.99f;
       motion.motionY *= 0.98f;
       motion.motionZ *= 0.99f;
@@ -165,5 +203,35 @@ final class ElytraSimulator extends BaseSimulator {
   @Override
   public boolean affectedByMovementKeys() {
     return false;
+  }
+
+  static int maxFireworkBoostTicks(MovementMetadata movementData) {
+    return 10 * (Math.max(movementData.fireworkRocketsPower, 0) + 1)
+      + FIREWORK_MAX_RANDOM_LIFETIME
+      + FIREWORK_TRACKING_LENIENCY_TICKS;
+  }
+
+  static boolean fireworkBoostPossiblyActive(MovementMetadata movementData) {
+    return movementData.fireworkRocketsTicks <= maxFireworkBoostTicks(movementData);
+  }
+
+  private static void applyFireworkBoostIfActive(MovementMetadata movementData, Motion motion, Vector lookVector) {
+    if (!fireworkBoostPossiblyActive(movementData)) {
+      return;
+    }
+
+    double currentX = motion.motionX;
+    double currentY = motion.motionY;
+    double currentZ = motion.motionZ;
+
+    motion.motionX = currentX
+      + lookVector.getX() * FIREWORK_ACCELERATION
+      + (lookVector.getX() * FIREWORK_TARGET_SPEED - currentX) * FIREWORK_BLEND;
+    motion.motionY = currentY
+      + lookVector.getY() * FIREWORK_ACCELERATION
+      + (lookVector.getY() * FIREWORK_TARGET_SPEED - currentY) * FIREWORK_BLEND;
+    motion.motionZ = currentZ
+      + lookVector.getZ() * FIREWORK_ACCELERATION
+      + (lookVector.getZ() * FIREWORK_TARGET_SPEED - currentZ) * FIREWORK_BLEND;
   }
 }

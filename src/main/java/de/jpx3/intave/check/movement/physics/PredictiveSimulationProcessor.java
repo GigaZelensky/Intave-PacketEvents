@@ -7,6 +7,7 @@ import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.math.Hypot;
 import de.jpx3.intave.module.feedback.Superposition;
 import de.jpx3.intave.player.ItemProperties;
+import de.jpx3.intave.player.collider.complex.ColliderResult;
 import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
@@ -17,6 +18,11 @@ import org.bukkit.Material;
 import java.util.List;
 
 public final class PredictiveSimulationProcessor implements SimulationProcessor {
+  private static final double PISTON_SLIME_MOVING_BLOCK_PROGRESS_PUSH = 0.51D;
+  private static final double HAND_ACTIVE_MISMATCH_ACCEPTANCE_DISTANCE = 0.01;
+  private static final int HAND_ACTIVE_MISMATCH_RELEASE_TICKS = 1;
+  private static final double HAND_ACTIVE_NOSLOW_DISTANCE = 0.08;
+  private static final double HAND_ACTIVE_NOSLOW_DISTANCE_ADVANTAGE = 0.01;
 
   /*
    * this class is rather messy
@@ -30,6 +36,13 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
     this.itemUsageReset = itemUsageReset;
     this.useSuperpositions = useSuperpositions;
     this.detectNoSlowdown = detectNoSlowdown;
+  }
+
+  private boolean shouldAcceptHandStateMismatch(InventoryMetadata inventoryData, double distance) {
+    return inventoryData.handActive()
+      && inventoryData.handActiveTicks > 2
+      && inventoryData.pastItemUsageTransition > 1
+      && distance < HAND_ACTIVE_MISMATCH_ACCEPTANCE_DISTANCE;
   }
 
   @Override
@@ -67,13 +80,12 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
 //    }
 
     Motion motion = movementData.motionProcessorContext.copy();
-    motion.setToBaseMotionFrom(movementData);
     MovementConfiguration configuration = MovementConfiguration.select(
       forward, strafe, 0,
       movementData.sprintingAllowed(),
       jumped, meta.inventory().handActive(), false
     );
-    Simulation simulate = simulator.simulate(user, motion, movementData, configuration);
+    Simulation simulate = simulateWithPossiblePistonSlimeBounce(user, simulator, movementData, configuration, motion);
 
     // what to do here?
 //    for (Superposition<?> superposition : superpositions) {
@@ -148,17 +160,38 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
     /* misplaced - please solve this otherwise */
     boolean movementSuggestsHandIsActive = simulationStack.handActive();
     boolean packetsSuggestsHandIsActive = inventoryData.handActive();
+    Simulation unrestrictedSimulation = simulationStack.bestUnrestrictedSimulation();
+    boolean unrestrictedSimulationSuggestsHandIsActive = unrestrictedSimulation != null && unrestrictedSimulation.configuration().isHandActive();
+    double unrestrictedDistance = simulationStack.unrestrictedSmallestDistance();
+    double selectedDistance = simulationStack.smallestDistance();
     if (packetsSuggestsHandIsActive && !movementSuggestsHandIsActive) {
-      boolean releaseHandConditions = Hypot.fast(movementData.motionX(), movementData.motionZ()) > 0.3 || movementData.lastTeleport >= 2;
+      inventoryData.handActiveMismatchTicks++;
+      boolean releaseHandConditions = Hypot.fast(movementData.motionX(), movementData.motionZ()) > 0.12 || movementData.lastTeleport >= 2;
       boolean itemIsBow = ItemProperties.isBow(meta.inventory().activeItemType()) || ItemProperties.isBow(meta.inventory().offhandItemType());
       boolean viaVersionBlockReplacement = meta.protocol().viaVersionShieldBlockReplacement();
-      if (releaseHandConditions && (!itemIsBow || (inventoryData.handActiveTicks > 3 && !viaVersionBlockReplacement)) && itemUsageReset) {
+      boolean stableItemUse = inventoryData.handActiveTicks > 2 && inventoryData.pastItemUsageTransition > 1;
+      boolean predictableMovement = movementData.pastVelocity > 2 && movementData.pastExternalVelocity > 2
+        && !movementData.inWater && !movementData.inWeb && !movementData.inLava() && !movementData.isInVehicle();
+      boolean clearNoSlowSignature = !unrestrictedSimulationSuggestsHandIsActive
+        && unrestrictedDistance < HAND_ACTIVE_NOSLOW_DISTANCE
+        && selectedDistance - unrestrictedDistance > HAND_ACTIVE_NOSLOW_DISTANCE_ADVANTAGE;
+      if (
+        releaseHandConditions
+        && stableItemUse
+        && predictableMovement
+        && clearNoSlowSignature
+        && inventoryData.handActiveMismatchTicks >= HAND_ACTIVE_MISMATCH_RELEASE_TICKS
+        && (!itemIsBow || (inventoryData.handActiveTicks > 3 && !viaVersionBlockReplacement))
+        && itemUsageReset
+      ) {
         meta.inventory().releaseItemNextTick();
 
         if (user.receives(MessageChannel.DEBUG_ITEM_RESETS)) {
           user.player().sendMessage(IntavePlugin.prefix() + "Requesting item usage reset as " + ChatColor.RED + "movement/state discrepancy ");
         }
       }
+    } else {
+      inventoryData.handActiveMismatchTicks = 0;
     }
 
     boolean canExpectCorrectReduce = !protocol.combatUpdate() && movementData.pastVelocity > 1 && movementData.motion().horizontalLength() > 0.2;
@@ -246,11 +279,11 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
       configuration = configuration.withoutKeypress();
     }
     movementData.physicsJumped = jumped;
-    motion.setTo(movementData.baseMotion());
+    motion.setToBaseMotionFrom(movementData);
     movementData.keyForward = configuration.forward();
     movementData.keyStrafe = configuration.strafe();
     movementData.refreshFriction(sprinting);
-    Simulation simulation = simulator.simulate(user, motion, movementData, configuration);
+    Simulation simulation = simulateWithPossiblePistonSlimeBounce(user, simulator, movementData, configuration, motion);
     Timings.CHECK_PHYSICS_PROC_PRED_BIA.stop();
     Timings.CHECK_PHYSICS_PROC_BIA.stop();
     return simulation;
@@ -354,11 +387,10 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
     }
     movementData.physicsJumped = configuration.isJumping();
 //    movementData.sprintMove = configuration.isSprinting();
-    motion.setToBaseMotionFrom(movementData);
     movementData.keyForward = configuration.forward();
     movementData.keyStrafe = configuration.strafe();
     movementData.refreshFriction(sprinting);
-    Simulation simulationResult = simulator.simulate(user, motion, movementData, configuration);
+    Simulation simulationResult = simulateWithPossiblePistonSlimeBounce(user, simulator, movementData, configuration, motion);
     Timings.CHECK_PHYSICS_PROC_LK_BIA.stop();
     Timings.CHECK_PHYSICS_PROC_BIA.stop();
     return simulationResult;
@@ -560,15 +592,85 @@ public final class PredictiveSimulationProcessor implements SimulationProcessor 
     MovementMetadata movementData = user.meta().movement();
     InventoryMetadata inventoryData = user.meta().inventory();
     Motion motion = movementData.motionProcessorContext;
-    motion.setToBaseMotionFrom(movementData);
-    Simulation simulation = simulator.simulate(
-      user, motion, movementData, configuration
-    );
+    Simulation simulation = simulateWithPossiblePistonSlimeBounce(user, simulator, movementData, configuration, motion);
     double distance = simulation.accuracy(movementData.motion());
-    if (forceApply || inventoryData.handActive() == configuration.isHandActive() || distance < 0.001) {
-      simulation = simulation.reusableCopy();
+    result.tryAppendToUnrestrictedState(simulation, distance);
+    if (forceApply || inventoryData.handActive() == configuration.isHandActive() || shouldAcceptHandStateMismatch(inventoryData, distance) || distance < 0.001) {
       result.tryAppendToState(simulation, distance);
     }
     return simulation;
+  }
+
+  private Simulation simulateWithPossiblePistonSlimeBounce(
+    User user,
+    Simulator simulator,
+    MovementMetadata movementData,
+    MovementConfiguration configuration,
+    Motion motion
+  ) {
+    motion.setToBaseMotionFrom(movementData);
+    Simulation bestSimulation = simulator.simulate(user, motion, movementData, configuration).reusableCopy();
+    if (movementData.pistonSlimeBounceTicks <= 0) {
+      return bestSimulation;
+    }
+
+    motion.setToBaseMotionFrom(movementData);
+    applyPistonSlimeBounce(movementData, motion);
+    Simulation bounceSimulation = simulator.simulate(user, motion, movementData, configuration).reusableCopy();
+    Simulation displacementSimulation = simulatePistonSlimeDisplacement(user, movementData, configuration, 1.0D);
+    Simulation movingBlockDisplacementSimulation = simulatePistonSlimeDisplacement(
+      user,
+      movementData,
+      configuration,
+      1.0D + PISTON_SLIME_MOVING_BLOCK_PROGRESS_PUSH
+    );
+    if (bounceSimulation.accuracy(movementData.motion()) < bestSimulation.accuracy(movementData.motion())) {
+      bounceSimulation.append("psb");
+      bestSimulation = bounceSimulation;
+    }
+    if (displacementSimulation.accuracy(movementData.motion()) < bestSimulation.accuracy(movementData.motion())) {
+      displacementSimulation.append("psbk");
+      bestSimulation = displacementSimulation;
+    }
+    if (movingBlockDisplacementSimulation.accuracy(movementData.motion()) < bestSimulation.accuracy(movementData.motion())) {
+      movingBlockDisplacementSimulation.append("psbm");
+      bestSimulation = movingBlockDisplacementSimulation;
+    }
+    return bestSimulation;
+  }
+
+  private Simulation simulatePistonSlimeDisplacement(
+    User user,
+    MovementMetadata movementData,
+    MovementConfiguration configuration,
+    double pushMultiplier
+  ) {
+    double baseMotionX = movementData.pistonSlimeBounceMotionX == 0.0D
+      ? movementData.baseMotionX
+      : 0.0D;
+    double baseMotionY = movementData.pistonSlimeBounceMotionY > 0.0D
+      ? Math.max(0.0D, movementData.baseMotionY)
+      : movementData.baseMotionY;
+    double baseMotionZ = movementData.pistonSlimeBounceMotionZ == 0.0D
+      ? movementData.baseMotionZ
+      : 0.0D;
+    Motion motion = new Motion(
+      baseMotionX + movementData.pistonSlimeBounceMotionX * pushMultiplier,
+      baseMotionY + movementData.pistonSlimeBounceMotionY * pushMultiplier,
+      baseMotionZ + movementData.pistonSlimeBounceMotionZ * pushMultiplier
+    );
+    return Simulation.of(user, configuration, ColliderResult.untouched(motion)).reusableCopy();
+  }
+
+  private void applyPistonSlimeBounce(MovementMetadata movementData, Motion motion) {
+    if (movementData.pistonSlimeBounceMotionX != 0) {
+      motion.motionX += movementData.pistonSlimeBounceMotionX;
+    }
+    if (movementData.pistonSlimeBounceMotionY != 0) {
+      motion.motionY += movementData.pistonSlimeBounceMotionY;
+    }
+    if (movementData.pistonSlimeBounceMotionZ != 0) {
+      motion.motionZ += movementData.pistonSlimeBounceMotionZ;
+    }
   }
 }

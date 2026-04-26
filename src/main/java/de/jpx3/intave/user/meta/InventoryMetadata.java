@@ -25,6 +25,7 @@ public final class InventoryMetadata {
   private final Player player;
   private final List<String> whitelistedItemIdRequests = new ArrayList<>();
   public int handActiveTicks, pastHandActiveTicks = 100;
+  public int handActiveMismatchTicks;
   public int pastItemUsageTransition;
   public int pastHotBarSlotChange;
   public long lastWCCReset;
@@ -127,6 +128,7 @@ public final class InventoryMetadata {
       }
       this.pastItemUsageTransition = 0;
       this.handActiveTicks = 0;
+      this.handActiveMismatchTicks = 0;
       this.activatedItemThisTick = true;
 
       if (IntaveControl.DEBUG_ITEM_USAGE) {
@@ -162,6 +164,7 @@ public final class InventoryMetadata {
       this.handActive = false;
       this.pastItemUsageTransition = 0;
       this.handActiveTicks = 0;
+      this.handActiveMismatchTicks = 0;
       this.deactivatedItemThisTick = true;
       Material activeItem = this.activeItemType;
       if (IntaveControl.DEBUG_ITEM_USAGE) {
