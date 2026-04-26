@@ -1,6 +1,5 @@
 package de.jpx3.intave.connect.sibyl;
 
-import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.executor.Synchronizer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -12,15 +11,6 @@ public final class SibylMessageTransmitter {
       Synchronizer.synchronize(() -> sendMessage(player, message, args));
       return;
     }
-    SibylIntegrationService sibyl = IntavePlugin.singletonInstance().sibyl();
-    if (sibyl.encryptionActiveFor(player)) {
-//      SibylPacketOutMessage packet = new SibylPacketOutMessage();
-//      packet.setMessage(String.format(message, (Object[]) args));
-//      sibyl.sendTrustedPacket(player, packet);
-      player.sendMessage(ChatColor.RED + "(insecure) " + ChatColor.RESET + String.format(message, (Object[]) args));
-    } else {
-      // for now, just send the message to the player
-      player.sendMessage(ChatColor.RED + "(insecure) " + ChatColor.RESET + String.format(message, (Object[]) args));
-    }
+    player.sendMessage(ChatColor.RED + "(debug) " + ChatColor.RESET + String.format(message, (Object[]) args));
   }
 }

