@@ -65,7 +65,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -236,6 +241,10 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
     }
   }
 
+  public static void invalidateConfigurationLayoutCache() {
+    legacyConfigLayCache = null;
+  }
+
   public static boolean legacyConfigurationLayout() {
     if (legacyConfigLayCache != null) {
       return legacyConfigLayCache;
@@ -252,7 +261,6 @@ public final class Heuristics extends MetaCheck<Heuristics.HeuristicMeta> {
   }
 
   @NotNull
-  @SuppressWarnings("UnusedAssignment")
   public List<Anomaly> catchAnomaliesOf(User user) {
     if (!user.hasPlayer()) {
       return Collections.emptyList();

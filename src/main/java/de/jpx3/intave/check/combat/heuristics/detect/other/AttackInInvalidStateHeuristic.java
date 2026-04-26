@@ -62,15 +62,16 @@ public final class AttackInInvalidStateHeuristic extends MetaCheckPart<Heuristic
     // not checked yet
     AttackInInvalidStateMeta meta = metaOf(user);
     if (user.meta().inventory().handActive() && user.meta().movement().lastTeleport > 10) {
+      String checkName = "attack:item";
       Anomaly anomaly = Anomaly.anomalyOf("attack:item", Confidence.NONE, Anomaly.Type.KILLAURA, "attacked whilst using an item");
       parentCheck().saveAnomaly(player, anomaly);
       //dmc28
-      user.nerf(BLOCKING, "28");
+      user.nerf(BLOCKING, checkName);
 //      user.nerf(CRITICALS, "28");
       // This will never happen to a legit player
       if (meta.internalVl++ > 20) {
-        user.nerf(AttackNerfStrategy.DMG_ARMOR_INEFFECTIVE, "28");
-        user.nerf(AttackNerfStrategy.BURN_LONGER, "28");
+        user.nerf(AttackNerfStrategy.DMG_ARMOR_INEFFECTIVE, checkName);
+        user.nerf(AttackNerfStrategy.BURN_LONGER, checkName);
         meta.internalVl = 0;
       }
       sendStopUseItemPacketToServer(user);

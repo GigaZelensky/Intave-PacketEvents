@@ -162,9 +162,6 @@ public final class BlockingHeuristic extends MetaCheckPart<Heuristics, BlockingH
           description += " (version " + user.meta().protocol().versionString() + ")";
           Anomaly anomaly = Anomaly.anomalyOf("block:ops", Confidence.NONE, Anomaly.Type.KILLAURA, description, 0);
           parentCheck().saveAnomaly(player, anomaly);
-//          if(meta.unsendPackets.size() != meta.heldItemOperations) {
-//            Bukkit.broadcastMessage("flag " + meta.heldItemOperations + " " + meta.blocksPlacedThisTick);
-//          }
         }
       }
     }
