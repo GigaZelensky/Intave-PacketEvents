@@ -73,6 +73,14 @@ import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.ENDER_PE
 public final class Physics extends Check {
   private static final double VL_DECREMENT_PER_VALID_MOVE = 0.08;
   private static final double VELOCITY_VL_THRESHOLD = 6;
+  private static final double PREDICTION_ADVANTAGE_THRESHOLD = 0.001;
+  private static final double PREDICTION_ADVANTAGE_TRIGGER = 0.001;
+  private static final double PREDICTION_ADVANTAGE_SETBACK = 0.004;
+  private static final double PREDICTION_ADVANTAGE_MAX = 0.16;
+  private static final double HORIZONTAL_EXCESS_THRESHOLD = 0.00012;
+  private static final double SUPPRESSED_OFFSET_THRESHOLD = 0.001;
+  private static final double SUPPRESSED_OFFSET_TRIGGER = 0.006;
+  private static final double SUPPRESSED_OFFSET_MAX = 0.08;
 
   private static final long TOTAL_RESET = 1000 * 60 * 60;
   private static final int AVAILABLE_POINTS = 8;
@@ -437,6 +445,33 @@ public final class Physics extends Check {
     if (violationLevelData.physicsOffset < 0) {
       violationLevelData.physicsOffset = 0;
     }
+    double predictionAdvantageViolation = skipVLCalculation ? 0 : calculatePredictionAdvantageViolation(
+      movementData,
+      violationLevelData,
+      spectator,
+      flying,
+      onLadder,
+      collidedWithBoat,
+      predictedX,
+      predictedZ,
+      distance,
+      horizontalTags
+    );
+    horizontalViolationIncrease = Math.max(horizontalViolationIncrease, predictionAdvantageViolation);
+    double suppressedOffsetViolation = skipVLCalculation ? 0 : calculateSuppressedOffsetViolation(
+      movementData,
+      violationLevelData,
+      spectator,
+      flying,
+      onLadder,
+      collidedWithBoat,
+      distance,
+      horizontalViolationIncrease,
+      verticalViolationIncrease,
+      horizontalTags,
+      verticalTags
+    );
+    horizontalViolationIncrease = Math.max(horizontalViolationIncrease, suppressedOffsetViolation);
 
     boolean velocityDetected = false;
     boolean checkVelocity = !skipVLCalculation
@@ -568,7 +603,8 @@ public final class Physics extends Check {
       violationLevelIncrease = 0;
     }
 
-    if (violationLevelData.physicsInsignificantBufferVL < 3 &&
+    boolean predictionAdvantageViolationTag = horizontalTags.contains(EvaluationTag.PREDICTION_ADVANTAGE);
+    if (!predictionAdvantageViolationTag && violationLevelData.physicsInsignificantBufferVL < 3 &&
       violationLevelData.physicsVL + violationLevelIncrease > 50 &&
       violationLevelIncrease > 0 && !movementData.inWeb && !movementData.inWater &&
       distance > 0.001
@@ -681,7 +717,14 @@ public final class Physics extends Check {
 
     boolean setback = false;
     double latantDistance = 0.7;
-    boolean offsetRequirement = violationLevelData.physicsOffset > latantDistance && distance > 0.001;
+    boolean predictionAdvantageOffsetRequirement = predictionAdvantageViolationTag &&
+      (violationLevelData.physicsPredictionAdvantage >= PREDICTION_ADVANTAGE_SETBACK || violationLevelData.physicsOffset > 0.6);
+    boolean suppressedOffsetViolationTag = horizontalTags.contains(EvaluationTag.SUPPRESSED_OFFSET);
+    boolean suppressedOffsetRequirement = suppressedOffsetViolationTag &&
+      (violationLevelData.physicsSuppressedOffset >= SUPPRESSED_OFFSET_TRIGGER || violationLevelData.physicsOffset > 0.6);
+    boolean offsetRequirement = (violationLevelData.physicsOffset > latantDistance && distance > 0.001)
+      || predictionAdvantageOffsetRequirement
+      || suppressedOffsetRequirement;
 
     PacketLogging logging = Modules.tracker().packetLogging();
     double finalVerticalViolationIncrease = verticalViolationIncrease;
@@ -700,6 +743,12 @@ public final class Physics extends Check {
       if (velocityDetected) {
         details += ", strict";
       }
+      if (predictionAdvantageOffsetRequirement) {
+        details += ", prediction advantage";
+      }
+      if (suppressedOffsetRequirement) {
+        details += ", suppressed offset";
+      }
 
       if (movementData.forceCorrectReduce) {
         details += velocityDetected ? "&" : ",";
@@ -714,6 +763,8 @@ public final class Physics extends Check {
       granularDebugs.put("pose", movementData.pose().name());
       granularDebugs.put("vehicle", movementData.isInVehicle() ? (movementData.isInRidingVehicle() ? "riding" : "passive") : "none");
       granularDebugs.put("insig", formatDouble(violationLevelData.physicsInsignificantBufferVL, 1));
+      granularDebugs.put("padv", formatDouble(violationLevelData.physicsPredictionAdvantage, 3));
+      granularDebugs.put("soff", formatDouble(violationLevelData.physicsSuppressedOffset, 3));
       granularDebugs.put("acc/off", formatDouble(violationLevelData.physicsOffset, 2));
       granularDebugs.put("s/c v", MinecraftVersion.getCurrentVersion().getVersion() + " / " + user.protocolVersion());
       BlockShape collShape = Collision.shape(player, currentBoundingBox);
@@ -1011,6 +1062,12 @@ public final class Physics extends Check {
       } else if (violationLevelData.physicsOffset > 0.1) {
         debug += " off:" + formatDouble(violationLevelData.physicsOffset, 2);
       }
+      if (violationLevelData.physicsPredictionAdvantage > 0.01) {
+        debug += " padv:" + formatDouble(violationLevelData.physicsPredictionAdvantage, 3);
+      }
+      if (violationLevelData.physicsSuppressedOffset > 0.01) {
+        debug += " soff:" + formatDouble(violationLevelData.physicsSuppressedOffset, 3);
+      }
 
       // display tags
       if (!verticalTags.isEmpty()) {
@@ -1131,6 +1188,250 @@ public final class Physics extends Check {
       }
 //      Synchronizer.synchronize(() -> player.sendMessage(finalDebug));
     }
+  }
+
+  private double calculatePredictionAdvantageViolation(
+    MovementMetadata movementData,
+    ViolationMetadata violationLevelData,
+    boolean spectator,
+    boolean flying,
+    boolean onLadder,
+    boolean collidedWithBoat,
+    double predictedX,
+    double predictedZ,
+    double offset,
+    Set<? super EvaluationTag> tags
+  ) {
+    if (!isPredictionAdvantageCheckable(movementData, spectator, flying, onLadder, collidedWithBoat)) {
+      decayPredictionAdvantage(violationLevelData, predictionAdvantageOutOfContextDecay(movementData, onLadder, collidedWithBoat));
+      return 0;
+    }
+    double receivedHorizontal = movementData.motion().horizontalLength();
+    double predictedHorizontal = MathHelper.resolveHorizontalDistance(0, 0, predictedX, predictedZ);
+    double horizontalExcess = receivedHorizontal - predictedHorizontal;
+    if (horizontalExcess < HORIZONTAL_EXCESS_THRESHOLD) {
+      boolean smallOffsetPressure = offset > PREDICTION_ADVANTAGE_THRESHOLD && horizontalExcess > 0;
+      decayPredictionAdvantage(violationLevelData, smallOffsetPressure ? 0.0002 : 0.0015);
+      return 0;
+    }
+
+    // Grim-style advantage accounting, but signed: only client-favorable horizontal excess contributes.
+    double advantage = Math.min(0.004, horizontalExcess + Math.max(0, offset - PREDICTION_ADVANTAGE_THRESHOLD) * 0.25);
+    violationLevelData.physicsPredictionAdvantage = Math.min(
+      PREDICTION_ADVANTAGE_MAX,
+      violationLevelData.physicsPredictionAdvantage + advantage
+    );
+    if (violationLevelData.physicsPredictionAdvantage < PREDICTION_ADVANTAGE_TRIGGER) {
+      return 0;
+    }
+    tags.add(EvaluationTag.PREDICTION_ADVANTAGE);
+    return 12.0 + violationLevelData.physicsPredictionAdvantage * 500.0;
+  }
+
+  private boolean isPredictionAdvantageCheckable(
+    MovementMetadata movementData,
+    boolean spectator,
+    boolean flying,
+    boolean onLadder,
+    boolean collidedWithBoat
+  ) {
+    if (spectator || flying || movementData.simulator() != Simulators.PLAYER || onLadder || collidedWithBoat) {
+      return false;
+    }
+    if (movementData.receivedFlyingPacketIn(2) || movementData.isInVehicle() || movementData.pose() == Pose.FALL_FLYING) {
+      return false;
+    }
+    if (movementData.inWater() || movementData.inLava() || movementData.inWeb()) {
+      return false;
+    }
+    if (movementData.collidedHorizontally || movementData.step || movementData.currentlyInBlock) {
+      return false;
+    }
+    if (movementData.sneaking || movementData.lastSneaking || movementData.pastEdgeSneak <= 3) {
+      return false;
+    }
+    if (movementData.pastVelocity <= 8 || movementData.pastExternalVelocity <= 8 || movementData.physicsUnpredictableVelocityExpected) {
+      return false;
+    }
+    if (movementData.pastNearbyCollisionInaccuracy <= 2 || movementData.pastPushedByWaterFlow <= 20) {
+      return false;
+    }
+    if (movementData.pastWaterMovement <= 3 || movementData.pastLavaMovement <= 3 || movementData.pastInWeb <= 5) {
+      return false;
+    }
+    if (movementData.pastElytraFlying <= 4 || movementData.pastRiptideSpin < 4 || movementData.fireworkRocketsTicks < 30 * movementData.fireworkRocketsPower) {
+      return false;
+    }
+    if (movementData.pistonMotionToleranceRemaining > 0 ||
+      movementData.shulkerXToleranceRemaining > 0 ||
+      movementData.shulkerYToleranceRemaining > 0 ||
+      movementData.shulkerZToleranceRemaining > 0) {
+      return false;
+    }
+    if (movementData.attachVehicleTicks <= 1 || movementData.detachVehicleTicks <= 2 || movementData.pushedByEntity) {
+      return false;
+    }
+    return movementData.motion().horizontalLength() > 0.08 || Math.abs(movementData.motionY()) > 0.08;
+  }
+
+  private double calculateSuppressedOffsetViolation(
+    MovementMetadata movementData,
+    ViolationMetadata violationLevelData,
+    boolean spectator,
+    boolean flying,
+    boolean onLadder,
+    boolean collidedWithBoat,
+    double offset,
+    double horizontalViolationIncrease,
+    double verticalViolationIncrease,
+    Set<EvaluationTag> horizontalTags,
+    Set<EvaluationTag> verticalTags
+  ) {
+    if (horizontalViolationIncrease > 0 || verticalViolationIncrease > 0) {
+      decaySuppressedOffset(violationLevelData, 0.003);
+      return 0;
+    }
+    if (!isSuppressedOffsetCheckable(movementData, spectator, flying, onLadder, collidedWithBoat, horizontalTags, verticalTags)) {
+      decaySuppressedOffset(violationLevelData, suppressedOffsetOutOfContextDecay(movementData, onLadder, collidedWithBoat));
+      return 0;
+    }
+    double offsetExcess = offset - SUPPRESSED_OFFSET_THRESHOLD;
+    if (offsetExcess <= 0) {
+      decaySuppressedOffset(violationLevelData, 0.0007);
+      return 0;
+    }
+
+    double advantage = Math.min(0.004, offsetExcess);
+    violationLevelData.physicsSuppressedOffset = Math.min(
+      SUPPRESSED_OFFSET_MAX,
+      violationLevelData.physicsSuppressedOffset + advantage
+    );
+    if (violationLevelData.physicsSuppressedOffset < SUPPRESSED_OFFSET_TRIGGER) {
+      return 0;
+    }
+    horizontalTags.add(EvaluationTag.SUPPRESSED_OFFSET);
+    return 10.0 + violationLevelData.physicsSuppressedOffset * 2500.0;
+  }
+
+  private boolean isSuppressedOffsetCheckable(
+    MovementMetadata movementData,
+    boolean spectator,
+    boolean flying,
+    boolean onLadder,
+    boolean collidedWithBoat,
+    Set<EvaluationTag> horizontalTags,
+    Set<EvaluationTag> verticalTags
+  ) {
+    if (spectator || flying || movementData.simulator() != Simulators.PLAYER || onLadder || collidedWithBoat) {
+      return false;
+    }
+    if (!movementData.onGround() || Math.abs(movementData.motionY()) > 0.01) {
+      return false;
+    }
+    boolean stableCrouch = movementData.pose() == Pose.CROUCHING || movementData.sneaking || movementData.lastSneaking;
+    if (!stableCrouch || movementData.ticksSneaking <= 2 || movementData.pastEdgeSneak <= 10) {
+      return false;
+    }
+    if (!horizontalTags.contains(EvaluationTag.SNEAKING) || !horizontalTags.contains(EvaluationTag.FLYING_ON_GROUND)) {
+      return false;
+    }
+    if (!verticalTags.isEmpty()) {
+      return false;
+    }
+    if (movementData.inWater() || movementData.inLava() || movementData.inWeb()) {
+      return false;
+    }
+    if (movementData.collidedHorizontally || movementData.step || movementData.currentlyInBlock) {
+      return false;
+    }
+    if (movementData.pastVelocity <= 8 || movementData.pastExternalVelocity <= 8 || movementData.physicsUnpredictableVelocityExpected) {
+      return false;
+    }
+    if (movementData.pastNearbyCollisionInaccuracy <= 2 || movementData.pastPushedByWaterFlow <= 20) {
+      return false;
+    }
+    if (movementData.pastWaterMovement <= 3 || movementData.pastLavaMovement <= 3 || movementData.pastInWeb <= 5) {
+      return false;
+    }
+    if (movementData.pastElytraFlying <= 4 || movementData.pastRiptideSpin < 4 || movementData.fireworkRocketsTicks < 30 * movementData.fireworkRocketsPower) {
+      return false;
+    }
+    if (movementData.pistonMotionToleranceRemaining > 0 ||
+      movementData.shulkerXToleranceRemaining > 0 ||
+      movementData.shulkerYToleranceRemaining > 0 ||
+      movementData.shulkerZToleranceRemaining > 0) {
+      return false;
+    }
+    if (movementData.attachVehicleTicks <= 1 || movementData.detachVehicleTicks <= 2 || movementData.pushedByEntity) {
+      return false;
+    }
+    return true;
+  }
+
+  private void decaySuppressedOffset(ViolationMetadata violationLevelData, double amount) {
+    if (violationLevelData.physicsSuppressedOffset > 0) {
+      violationLevelData.physicsSuppressedOffset = Math.max(0, violationLevelData.physicsSuppressedOffset - amount);
+    }
+  }
+
+  private double suppressedOffsetOutOfContextDecay(MovementMetadata movementData, boolean onLadder, boolean collidedWithBoat) {
+    boolean disturbed = movementData.inWater() ||
+      movementData.inLava() ||
+      movementData.inWeb() ||
+      movementData.isInVehicle() ||
+      movementData.pose() == Pose.FALL_FLYING ||
+      onLadder ||
+      collidedWithBoat ||
+      movementData.collidedHorizontally ||
+      movementData.step ||
+      movementData.currentlyInBlock ||
+      movementData.pastVelocity <= 8 ||
+      movementData.pastExternalVelocity <= 8 ||
+      movementData.physicsUnpredictableVelocityExpected ||
+      movementData.pastPushedByWaterFlow <= 20 ||
+      movementData.pastElytraFlying <= 4 ||
+      movementData.pastRiptideSpin < 4 ||
+      movementData.fireworkRocketsTicks < 30 * movementData.fireworkRocketsPower ||
+      movementData.pistonMotionToleranceRemaining > 0 ||
+      movementData.shulkerXToleranceRemaining > 0 ||
+      movementData.shulkerYToleranceRemaining > 0 ||
+      movementData.shulkerZToleranceRemaining > 0 ||
+      movementData.attachVehicleTicks <= 1 ||
+      movementData.detachVehicleTicks <= 2 ||
+      movementData.pushedByEntity;
+    return disturbed ? 0.03 : 0.0015;
+  }
+
+  private void decayPredictionAdvantage(ViolationMetadata violationLevelData, double amount) {
+    if (violationLevelData.physicsPredictionAdvantage > 0) {
+      violationLevelData.physicsPredictionAdvantage = Math.max(0, violationLevelData.physicsPredictionAdvantage - amount);
+    }
+  }
+
+  private double predictionAdvantageOutOfContextDecay(MovementMetadata movementData, boolean onLadder, boolean collidedWithBoat) {
+    boolean disturbed = movementData.receivedFlyingPacketIn(2) ||
+      movementData.inWater() ||
+      movementData.inLava() ||
+      movementData.inWeb() ||
+      movementData.isInVehicle() ||
+      movementData.pose() == Pose.FALL_FLYING ||
+      onLadder ||
+      collidedWithBoat ||
+      movementData.pastVelocity <= 8 ||
+      movementData.pastExternalVelocity <= 8 ||
+      movementData.physicsUnpredictableVelocityExpected ||
+      movementData.pastPushedByWaterFlow <= 20 ||
+      movementData.pastElytraFlying <= 4 ||
+      movementData.pastRiptideSpin < 4 ||
+      movementData.fireworkRocketsTicks < 30 * movementData.fireworkRocketsPower ||
+      movementData.pistonMotionToleranceRemaining > 0 ||
+      movementData.shulkerXToleranceRemaining > 0 ||
+      movementData.shulkerYToleranceRemaining > 0 ||
+      movementData.shulkerZToleranceRemaining > 0 ||
+      movementData.attachVehicleTicks <= 1 ||
+      movementData.detachVehicleTicks <= 2 ||
+      movementData.pushedByEntity;
+    return disturbed ? 0.03 : 0.0015;
   }
 
   private void refreshNearbyBlocks(User user, double x, double y, double z) {

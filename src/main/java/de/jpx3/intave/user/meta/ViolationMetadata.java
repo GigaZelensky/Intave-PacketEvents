@@ -8,6 +8,8 @@ public final class ViolationMetadata {
   public double physicsOffset;
   public double physicsVL;
   public double physicsInsignificantBufferVL;
+  public double physicsPredictionAdvantage;
+  public double physicsSuppressedOffset;
   public double physicsVelocityVL;
   public double physicsVehicleVL;
   public double physicsInvalidMovementsInRow;
