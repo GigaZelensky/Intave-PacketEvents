@@ -69,7 +69,9 @@ import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import com.github.retrooper.packetevents.event.CancellableEvent;
+import org.bukkit.block.Block;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -566,10 +568,14 @@ public final class MovementDispatcher extends Module {
       }
 
       if (hasMovement || hasRotation) {
+        if (!hasMovement) {
+          physicsCheck.advanceSlimeBounceOnFlyingPacket(user);
+        }
         physicsCheck.receiveMovement(user, hasMovement, hasRotation);
       } else {
         logging.logSystemMessage(user, () -> "MOVEMENT IGNORED: No movement or rotation");
         physicsCheck.updateOnGroundIfFlying(user);
+        physicsCheck.advanceSlimeBounceOnFlyingPacket(user);
       }
 
       boolean clientOnGround = vehicleMove ? player.isOnGround() : movementPacket.onGround();
@@ -835,6 +841,14 @@ public final class MovementDispatcher extends Module {
 
     if (movement.pistonMotionToleranceRemaining > 0) {
       movement.pistonMotionToleranceRemaining--;
+    }
+    if (movement.pistonSlimeBounceTicks > 0) {
+      movement.pistonSlimeBounceTicks--;
+      if (movement.pistonSlimeBounceTicks == 0) {
+        movement.pistonSlimeBounceMotionX = 0;
+        movement.pistonSlimeBounceMotionY = 0;
+        movement.pistonSlimeBounceMotionZ = 0;
+      }
     }
 
     boolean flyingWithElytra = movement.elytraFlying;//movement.pose() == Pose.FALL_FLYING;
@@ -1216,6 +1230,59 @@ public final class MovementDispatcher extends Module {
   private static final Set<Material> SHULKER_BOX_MATERIALS = MaterialSearch.materialsThatContain("SHULKER_BOX");
 
   private static final Set<Material> PISTON_MATERIALS = MaterialSearch.materialsThatContain("PISTON");
+  private static final Material SLIME_BLOCK = MaterialSearch.materialThatIsNamed("SLIME_BLOCK");
+  private static final int PISTON_SLIME_BOUNCE_TICKS = 5;
+  private static final double PISTON_SLIME_BOUNCE_HORIZONTAL_GROWTH = 0.2D;
+  private static final double PISTON_SLIME_BOUNCE_VERTICAL_GROWTH = 0.6D;
+
+  @BukkitEventSubscription(
+    priority = EventPriority.MONITOR,
+    ignoreCancelled = true
+  )
+  public void receivePistonExtend(BlockPistonExtendEvent event) {
+    if (SLIME_BLOCK == null) {
+      return;
+    }
+
+    org.bukkit.block.BlockFace direction = event.getDirection();
+    int directionX = direction.getModX();
+    int directionY = direction.getModY();
+    int directionZ = direction.getModZ();
+    BoundingBox affectedSlimeArea = null;
+    for (Block block : event.getBlocks()) {
+      if (block.getType() != SLIME_BLOCK) {
+        continue;
+      }
+      BoundingBox sourceArea = new BoundingBox(0, 0, 0, 1.0D, 1.0D, 1.0D)
+        .offset(block.getX(), block.getY(), block.getZ());
+      BoundingBox destinationArea = sourceArea.offset(directionX, directionY, directionZ);
+      BoundingBox movedArea = sourceArea.union(destinationArea).grow(
+        PISTON_SLIME_BOUNCE_HORIZONTAL_GROWTH,
+        PISTON_SLIME_BOUNCE_VERTICAL_GROWTH,
+        PISTON_SLIME_BOUNCE_HORIZONTAL_GROWTH
+      );
+      affectedSlimeArea = affectedSlimeArea == null ? movedArea : affectedSlimeArea.union(movedArea);
+    }
+    if (affectedSlimeArea == null) {
+      return;
+    }
+
+    World world = event.getBlock().getWorld();
+    BoundingBox finalAffectedSlimeArea = affectedSlimeArea;
+    UserRepository.applyOnAll(user -> {
+      Player player = user.player();
+      if (!player.getWorld().equals(world)) {
+        return;
+      }
+      MovementMetadata movement = user.meta().movement();
+      BoundingBox boundingBox = movement.boundingBox();
+      if (boundingBox == null || !finalAffectedSlimeArea.intersectsWith(boundingBox)) {
+        return;
+      }
+      trackPistonSlimeBounce(movement, directionX, directionY, directionZ);
+    });
+  }
+
   @PacketSubscription(
     packetsOut = BLOCK_ACTION
   )
@@ -1282,7 +1349,24 @@ public final class MovementDispatcher extends Module {
           int expectedPistonY = (int) directionVec.yCoord + blockPosition.getY();
           int expectedPistonZ = (int) directionVec.zCoord + blockPosition.getZ();
           BoundingBox expandingBlockArea = pistonCollisionArea.offset(expectedPistonX, expectedPistonY, expectedPistonZ);
-          boolean playerAffected = expandingBlockArea.intersectsWith(user.meta().movement().boundingBox());
+          Material movedBlockType = VolatileBlockAccess.typeAccess(user, world, expectedPistonX, expectedPistonY, expectedPistonZ);
+          if (movedBlockType != SLIME_BLOCK) {
+            movedBlockType = VolatileBlockAccess.typeAccess(
+              user, world,
+              expectedPistonX + (int) directionVec.xCoord,
+              expectedPistonY + (int) directionVec.yCoord,
+              expectedPistonZ + (int) directionVec.zCoord
+            );
+          }
+          boolean slimePistonBounce = SLIME_BLOCK != null && movedBlockType == SLIME_BLOCK;
+          BoundingBox detectionArea = slimePistonBounce
+            ? expandingBlockArea.grow(
+              PISTON_SLIME_BOUNCE_HORIZONTAL_GROWTH,
+              PISTON_SLIME_BOUNCE_VERTICAL_GROWTH,
+              PISTON_SLIME_BOUNCE_HORIZONTAL_GROWTH
+            )
+            : expandingBlockArea;
+          boolean playerAffected = detectionArea.intersectsWith(user.meta().movement().boundingBox());
 
           // Only do something if the player is actually affected
           if (playerAffected) {
@@ -1291,6 +1375,9 @@ public final class MovementDispatcher extends Module {
             // where he would get false-mitigated
             movement.pistonMotionToleranceRemaining = 10;
             movement.pistonCollisionArea = expandingBlockArea;
+            if (slimePistonBounce) {
+              trackPistonSlimeBounce(movement, directionVec.xCoord, directionVec.yCoord, directionVec.zCoord);
+            }
 
             float xOffset = (float) Math.abs(expectedPistonX - user.meta().movement().positionX);
             float yOffsetBottom = (float) Math.abs((expectedPistonY + 1) - user.meta().movement().boundingBox().minY);
@@ -1326,6 +1413,19 @@ public final class MovementDispatcher extends Module {
         });
       }
     }
+  }
+
+  private void trackPistonSlimeBounce(
+    MovementMetadata movement,
+    double directionX,
+    double directionY,
+    double directionZ
+  ) {
+    movement.pistonMotionToleranceRemaining = 10;
+    movement.pistonSlimeBounceTicks = PISTON_SLIME_BOUNCE_TICKS;
+    movement.pistonSlimeBounceMotionX = directionX;
+    movement.pistonSlimeBounceMotionY = directionY;
+    movement.pistonSlimeBounceMotionZ = directionZ;
   }
 
   @PacketSubscription(

@@ -1082,7 +1082,8 @@ public final class EntityTracker extends Module {
     }
 
     boolean isLivingEntity = entity.typeData().isLivingEntity();
-    boolean isFireworkRocket = type.name() != null && type.name().contains("Firework");
+    String typeName = type.name();
+    boolean isFireworkRocket = typeName != null && typeName.toLowerCase(Locale.ROOT).contains("firework");
     int entityTypeId = type.typeId();
 
     // Firework
@@ -1114,10 +1115,10 @@ public final class EntityTracker extends Module {
   private void processFireworkLegacy(Player player, List<EntityData<?>> metadata) {
     User user = UserRepository.userOf(player);
     Object value = fetchRaw(metadata, 7);
-    if (!(value instanceof Integer)) {
+    Integer entityId = readAttachedFireworkEntityId(value);
+    if (entityId == null) {
       return;
     }
-    int entityId = (int) value;
     MovementMetadata movement = user.meta().movement();
     InventoryMetadata inventory = user.meta().inventory();
     if (movement.pose() == Pose.FALL_FLYING && entityId == player.getEntityId()) {
@@ -1147,14 +1148,10 @@ public final class EntityTracker extends Module {
   private void processFireworkModern(Player player, List<EntityData<?>> metadata) {
     User user = UserRepository.userOf(player);
     Object value = fetchRaw(metadata, MODERN_ENTITY_ID_ACCESS_INDEX);
-    if (!(value instanceof OptionalInt)) {
+    Integer entityId = readAttachedFireworkEntityId(value);
+    if (entityId == null) {
       return;
     }
-    OptionalInt optionalId = (OptionalInt) value;
-    if (!optionalId.isPresent()) {
-      return;
-    }
-    int entityId = optionalId.getAsInt();
     MovementMetadata movement = user.meta().movement();
     InventoryMetadata inventory = user.meta().inventory();
     if ((movement.pose() == Pose.FALL_FLYING || movement.elytraFlying) && entityId == player.getEntityId()) {
@@ -1180,6 +1177,21 @@ public final class EntityTracker extends Module {
   }
 
   private static final String FIREWORK_IDENTIFIER = "FIREWORK";
+
+  private Integer readAttachedFireworkEntityId(Object value) {
+    if (value instanceof OptionalInt) {
+      OptionalInt optionalId = (OptionalInt) value;
+      return optionalId.isPresent() ? optionalId.getAsInt() : null;
+    }
+    if (value instanceof Optional) {
+      Optional<?> optionalId = (Optional<?>) value;
+      if (!optionalId.isPresent()) {
+        return null;
+      }
+      value = optionalId.get();
+    }
+    return value instanceof Number ? ((Number) value).intValue() : null;
+  }
 
   private void processHealthMetadata(
     Player player, Entity entity,

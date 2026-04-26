@@ -275,8 +275,8 @@ class BaseSimulator extends Simulator {
           player, environment, positionX, positionY, positionZ, interpolateX, interpolateY, interpolateZ);
 
       positionX += colliderResult.motionX();
-      positionY += colliderResult.motionZ();
-      positionZ += colliderResult.motionY();
+      positionY += colliderResult.motionY();
+      positionZ += colliderResult.motionZ();
 
       double diffX = positionX - environment.verifiedPositionX();
       double diffY = positionY - environment.verifiedPositionY();
