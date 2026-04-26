@@ -147,12 +147,19 @@ public final class BukkitShapeDrill extends AbstractShapeDrill {
   }
 
   private boolean isOriginBox(org.bukkit.util.BoundingBox box, int posX, int posY, int posZ) {
-    if (posX == 0 && posY == 0 && posZ == 0) {
-      return true;
-    }
-    return box.getMinX() >= -0.00001 && box.getMaxX() <= 1.00001
-      && box.getMinY() >= -0.00001 && box.getMaxY() <= 1.00001
-      && box.getMinZ() >= -0.00001 && box.getMaxZ() <= 1.00001;
+    double centerX = (box.getMinX() + box.getMaxX()) * 0.5d;
+    double centerY = (box.getMinY() + box.getMaxY()) * 0.5d;
+    double centerZ = (box.getMinZ() + box.getMaxZ()) * 0.5d;
+    double originDistance = distanceSquared(centerX, centerY, centerZ, 0.5d, 0.5d, 0.5d);
+    double worldDistance = distanceSquared(centerX, centerY, centerZ, posX + 0.5d, posY + 0.5d, posZ + 0.5d);
+    return originDistance <= worldDistance;
+  }
+
+  private double distanceSquared(double x, double y, double z, double targetX, double targetY, double targetZ) {
+    double deltaX = x - targetX;
+    double deltaY = y - targetY;
+    double deltaZ = z - targetZ;
+    return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
   }
 
   private static Method method(Class<?> owner, String name, Class<?>... parameterTypes) {
